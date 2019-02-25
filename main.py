@@ -26,6 +26,8 @@ parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, defaul
 parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
+current_time = time.strftime('%b_%m-%H_%M') # 'Oct_18-09:03'
+parser.add_argument('-save', '--save', help="Path to best saved model, default = save/best_model_XXX.pt", default="save/best_model_" + current_time + ".pt")
 args = parser.parse_args()
 
 if args.trainset == None or args.testset == None:
@@ -49,14 +51,25 @@ n_filt = int(args.n_filters)
 
 
 torch.manual_seed(args.seed)
-if is_cuda:
-  torch.cuda.manual_seed(args.seed)
 np.random.seed(seed=int(args.seed))
+if torch.cuda.is_available():
+    if not is_cuda:
+        print("WARNING: You have a CUDA device, so you should probably run with cuda")
+    else:
+        torch.cuda.manual_seed(args.seed)
 
-print(is_cuda)
-print(device)
+###############################################################################
+# Load data
+###############################################################################
+def model_save(fn):
+    with open(fn, 'wb') as f:
+        torch.save([model, criterion, optimizer], f)
 
-assert os.path.exists(args.testset)
+def model_load(fn):
+    global model, criterion, optimizer
+    with open(fn, 'rb') as f:
+        model, criterion, optimizer = torch.load(f)
+
 # Load data
 print("Loading data...")
 test_data = np.load(args.testset)
@@ -82,7 +95,9 @@ print("Loading complete!")
 # Number of features
 n_feat = np.shape(X_test)[2]
 
-
+###############################################################################
+# Training code
+###############################################################################
 
 def evaluate(x,y,mask):
   model.eval()
@@ -148,7 +163,7 @@ def train():
     inputs = Variable(inputs.permute(0,2,1))
     
 
-    optim.zero_grad()
+    optimizer.zero_grad()
     output, _ , _ = model(inputs, seq_lengths)
     np_targets = targets
     targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
@@ -158,7 +173,7 @@ def train():
     loss.backward()
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-    optim.step()
+    optimizer.step()
 
     train_err += loss.item()
     train_batches += 1
@@ -184,7 +199,7 @@ for i in range(1,2):
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, use_cnn=True).to(device)
-  optim = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
+  optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets
   train_index = np.where(partition != i)
@@ -214,7 +229,8 @@ for i in range(1,2):
     
     if val_accuracy > best_val_acc:
       best_val_acc = val_accuracy
-      best_model = model
+      #best_model = model
+      model_save(args.save)
 
     eps += [epoch]
     
