@@ -20,8 +20,8 @@
 
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
-#BSUB -o gpu-%J.out
-#BSUB -e gpu_%J.err
+#BSUB -o hpc-output/job-%J.out
+#BSUB -e hpc-output/job_%J.err
 # -- end of LSF options --
 
 nvidia-smi
@@ -31,5 +31,5 @@ module load cuda/9.1
 export PYTHONPATH=
 source ~/stdpy3/bin/activate
 
-python3 main.py > output.out
+python3 main.py 
 
