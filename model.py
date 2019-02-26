@@ -80,8 +80,9 @@ class ABLSTM(nn.Module):
               param.data.zero_()
     
   def forward(self,inp, seq_lengths):
-    x = self.in_drop(inp) # (batch_size, feature_size, seq_len)
-    
+    x = self.in_drop(inp)  # (batch_size, seq_len, feature_size)
+
+    x = x.permute(0, 2, 1)  # (batch_size, feature_size, seq_len)
     if self.use_cnn:
       #print("x: ", x.shape)
       conv_a = self.relu(self.cnn_a(x)) # (seq_len, feature_size, batch_size)

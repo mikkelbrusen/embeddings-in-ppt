@@ -121,7 +121,7 @@ def evaluate(x,y,mask):
       #convert to tensors
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
       inputs = torch.from_numpy(inputs).to(device)
-      inputs = Variable(inputs.permute(0,2,1))
+      inputs = Variable(inputs)
 
       output, _ , alphas  = model(inputs, seq_lengths)
 
@@ -160,7 +160,7 @@ def train():
     #convert to tensors
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
     inputs = torch.from_numpy(inputs).to(device)
-    inputs = Variable(inputs.permute(0,2,1))
+    inputs = Variable(inputs)
     
 
     optimizer.zero_grad()
