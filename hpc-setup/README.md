@@ -17,6 +17,8 @@ To run interactively on this node, you can use the following command:
 $ k40sh 
 ```
 
+To get info of GPU usage, write `$ nvidia-smi`
+
 ### LSF10 nodes
 
 2 nodes with 4 x TitanX (Pascal) – queuename: gputitanxpascal  
