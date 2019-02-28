@@ -24,6 +24,31 @@ class Attention(nn.Module):
 
     return torch.sum(x_in * att, dim=1), alpha # [bs, in_size]
 
+class MultiStepAttention(nn.Module):
+  def __init__(self, input_size, hidden_size, num_steps):
+    super(MultiStepAttention, self).__init__()
+    self.num_steps = num_steps
+    self.attn = Attention(input_size, input_size//2)
+    self.lstm_cell = nn.LSTMCell(input_size=input_size, hidden_size=2*hidden_size)
+
+  def forward(self, x_in, hidden, seq_lengths): #x_in: (batch_size, seq_len, hidden_size*2)
+    h_x,c_x = hidden #h_x: (2, batch_size, hidden_size)
+    h_x = h_x.view(h_x.size(1),h_x.size(2)*2) #(1, batch_size, hidden_size*2)
+    c_x = c_x.view(c_x.size(1),c_x.size(2)*2)
+    x_in = x_in.permute(1,0,2) #(seq_len, batch_size, hidden_size*2)
+#    print("h_x.shape", h_x.shape)
+#    print("x_in", x_in.shape)
+    for i in range(self.num_steps):
+      c_t = torch.cat((x_in, h_x.unsqueeze(0)), dim=0)
+#      print("c_t.shape", c_t.shape)
+      c_t = c_t.permute(1,0,2)
+      c_t, alpha = self.attn(c_t, seq_lengths+1)
+#      print("c_t.shape", c_t.shape)
+      h_x,c_x = self.lstm_cell(c_t, (h_x,c_x))
+
+    return h_x, alpha
+
+
 class ABLSTM(nn.Module):
   def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, use_cnn=False):
     super(ABLSTM, self).__init__()
@@ -36,18 +61,19 @@ class ABLSTM(nn.Module):
       self.cnn_a = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=1, padding= 1//2)
       self.cnn_b = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=3, padding= 3//2)
       self.cnn_c = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=5, padding= 5//2)
-      self.cnn_d = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=9, padding= 9//2)
-      self.cnn_e = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=15, padding= 15//2)
-      self.cnn_f = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=21, padding= 21//2)
-      self.cnn_final = nn.Conv1d(in_channels=6*n_filt, out_channels=60, kernel_size=3, padding= 3//2)
+      #self.cnn_d = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=9, padding= 9//2)
+      #self.cnn_e = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=15, padding= 15//2)
+      #self.cnn_f = nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=21, padding= 21//2)
+      self.cnn_final = nn.Conv1d(in_channels=3*n_filt, out_channels=30, kernel_size=3, padding= 3//2)
       
-      self.lstm = nn.LSTM(60, n_hid, bidirectional=True, batch_first=True)
+      self.lstm = nn.LSTM(30, n_hid, bidirectional=True, batch_first=True)
       
     else:
       self.lstm = nn.LSTM(n_feat, n_hid, bidirectional=True, batch_first=True) #input shape: (seq_len, batch_size, feature_size)
     
     self.relu = nn.ReLU()
-    self.attn = Attention(n_hid*2, n_hid) #second param can be small, like n_hid*1
+    self.multi_attn = MultiStepAttention(n_hid*2, n_hid, 10)
+    #self.attn = Attention(n_hid*2, n_hid) #second param can be small, like n_hid*1
     self.dense = nn.Linear(n_hid*2, n_hid*2)
     self.label = nn.Linear(n_hid*2, n_class)
  
@@ -88,12 +114,13 @@ class ABLSTM(nn.Module):
       conv_a = self.relu(self.cnn_a(x)) # (seq_len, feature_size, batch_size)
       conv_b = self.relu(self.cnn_b(x))
       conv_c = self.relu(self.cnn_c(x))
-      conv_d = self.relu(self.cnn_d(x))
-      conv_e = self.relu(self.cnn_e(x))
-      conv_f = self.relu(self.cnn_f(x))
+      #conv_d = self.relu(self.cnn_d(x))
+      #conv_e = self.relu(self.cnn_e(x))
+      #conv_f = self.relu(self.cnn_f(x))
 
       #print("conv_a.shape: ", conv_a.shape)
-      conv_cat = torch.cat((conv_a, conv_b, conv_c, conv_d, conv_e, conv_f), dim=1) #conv_cat.shape = (batch_size, feature_size, seq_len)
+      #conv_cat = torch.cat((conv_a, conv_b, conv_c, conv_d, conv_e, conv_f), dim=1) #conv_cat.shape = (batch_size, feature_size, seq_len)
+      conv_cat = torch.cat((conv_a, conv_b, conv_c), dim=1) #conv_cat.shape = (batch_size, feature_size, seq_len)
       #print("conv_cat.shape: ", conv_cat.shape)
 
       x = self.relu(self.cnn_final(conv_cat))
@@ -105,8 +132,12 @@ class ABLSTM(nn.Module):
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, (h, c) = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
+
+    #print("h.shape", h.shape)
+    #print("h.view", h.view(h.size(1),-1).unsqueeze(1).shape)
       
-    attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
+    #attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
+    attn_output, alpha = self.multi_attn(x_in=output, hidden=(h, c), seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
     output = self.drop(attn_output)
     
     output = self.relu(self.dense(output)) # (batch_size, hidden_size*2)
