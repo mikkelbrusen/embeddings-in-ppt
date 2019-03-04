@@ -193,9 +193,9 @@ loss_training = []
 loss_validation = []
 acc_training = []
 acc_validation = []
+best_val_accs = []
 
-
-for i in range(1,2):
+for i in range(1,4):
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, use_cnn=True).to(device)
@@ -244,3 +244,10 @@ for i in range(1,2):
     
     if epoch % 5 == 0 and epoch > 0:
       print(confusion_valid)
+
+  best_val_accs.append(best_val_acc)
+
+for i,acc in enumerate(best_val_accs):
+  print("Partion {:1d} : acc {:.2f}%".format(i,acc))
+
+print("Average accuracy {:.2f}%".format(sum(best_val_accs)/len(best_val_accs)))

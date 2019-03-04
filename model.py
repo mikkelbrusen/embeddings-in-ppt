@@ -19,7 +19,7 @@ class Attention(nn.Module):
 
     att_hid_align = torch.tanh(att_vector + hid_vector.unsqueeze(dim=1))
    
-    att_score = self.linear_att(att_vector).squeeze(2) # [bs, seq_len]
+    att_score = self.linear_att(att_hid_align).squeeze(2) # [bs, seq_len]
     
     mask = length_to_mask(seq_lengths)
 
