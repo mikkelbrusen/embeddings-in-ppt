@@ -15,10 +15,10 @@ from model import ABLSTM
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Hoglund/train.npz")
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/DeepLoc/train.npz")
 parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/DeepLoc/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
-parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 200", default=400)
+parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 400", default=400)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
@@ -195,7 +195,7 @@ acc_training = []
 acc_validation = []
 best_val_accs = []
 
-for i in range(1,4):
+for i in range(1,2):
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, use_cnn=True).to(device)
