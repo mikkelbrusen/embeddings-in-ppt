@@ -7,8 +7,9 @@ import os
 import time
 import argparse 
 import sys
+import pickle
 
-from utils import iterate_minibatches
+from utils import iterate_minibatches, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
 from model import ABLSTM
@@ -28,6 +29,7 @@ parser.add_argument('-se', '--seed',  help="Seed for random number init., defaul
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
 parser.add_argument('-save', '--save', help="Path to best saved model, default = save/best_model_XXX.pt", default="save/best_model_" + current_time + ".pt")
+parser.add_argument('-sr', '--save_results', help="Path to result object containing all kind of results, default = save/best_results_XXX.pt", default="save/best_results_" + current_time)
 args = parser.parse_args()
 
 if args.trainset == None or args.testset == None:
@@ -69,6 +71,10 @@ def model_load(fn):
     global model, criterion, optimizer
     with open(fn, 'rb') as f:
         model, criterion, optimizer = torch.load(f)
+
+def results_save(fn):
+  with open(fn, 'wb') as f:
+    pickle.dump(results, f)
 
 # Load data
 print("Loading data...")
@@ -188,12 +194,8 @@ def train():
 
 # Training
 criterion = nn.CrossEntropyLoss()
-best_val_acc = 0
-loss_training = []
-loss_validation = []
-acc_training = []
-acc_validation = []
-
+results = ResultsContainer()
+best_model = None
 
 for i in range(1,2):
   # Network compilation
@@ -214,25 +216,25 @@ for i in range(1,2):
   print("Validation shape: {}".format(X_val.shape))
   print("Training shape: {}".format(X_tr.shape))
 	
-  eps = []
   
   for epoch in range(num_epochs):
     start_time = time.time()
     confusion_valid = ConfusionMatrix(n_class)
     train_loss, train_accuracy, cf_train = train()
-    val_loss, val_accuracy, cf_val, confusion_valid, _ = evaluate(X_val, y_val, mask_val)
+    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets) = evaluate(X_val, y_val, mask_val)
     
-    loss_training.append(train_loss)
-    loss_validation.append(val_loss)
-    acc_training.append(train_accuracy)
-    acc_validation.append(val_accuracy)
+    results.loss_training.append(train_loss)
+    results.loss_validation.append(val_loss)
+    results.acc_training.append(train_accuracy)
+    results.acc_validation.append(val_accuracy)
+    results.epochs += 1
     
-    if val_accuracy > best_val_acc:
-      best_val_acc = val_accuracy
-      #best_model = model
-      model_save(args.save)
-
-    eps += [epoch]
+    if val_accuracy > results.best_val_acc:
+      results.best_val_acc = val_accuracy
+      results.best_cf_val = cf_val
+      results.alphas = alphas.cpu().detach().numpy()
+      results.targets = targets.cpu().detach().numpy()
+      best_model = model
     
     print('-' * 13, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 13 )
 
@@ -244,3 +246,7 @@ for i in range(1,2):
     
     if epoch % 5 == 0 and epoch > 0:
       print(confusion_valid)
+
+model = best_model
+model_save(args.save)
+results_save(args.save_results)
