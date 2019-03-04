@@ -168,7 +168,7 @@ def train():
     np_targets = targets
     targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
 
-
+    #loss_mem = criterion(input=output_mem, target=targets_mem)
     loss = criterion(input=output, target=targets)
     loss.backward()
 

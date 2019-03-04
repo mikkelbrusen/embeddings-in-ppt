@@ -12,8 +12,11 @@ class Attention(nn.Module):
     self.linear_in = nn.Linear(in_size, att_size)
     self.linear_att = nn.Linear(att_size, 1, bias=False)
     
-  def forward(self, x_in, seq_lengths):  # x_in.shape: [bs, seq_len, in_size]
-    att_vector = torch.tanh(self.linear_in(x_in)) # [bs, seq_len, att_size]
+  def forward(self, x_in, h_prev, seq_lengths):  # x_in.shape: [bs, seq_len, in_size]
+    att_vector = self.linear_in(x_in) # [bs, seq_len, att_size]
+    hid_vector = self.linear_hid(h_prev) # bs,att_size
+
+    att_hid_align = torch.tanh(att_vector + hid_vector.unsqueeze(dim=1))
    
     att_score = self.linear_att(att_vector).squeeze(2) # [bs, seq_len]
     
@@ -35,16 +38,13 @@ class MultiStepAttention(nn.Module):
     h_x,c_x = hidden #h_x: (2, batch_size, hidden_size)
     h_x = h_x.view(h_x.size(1),h_x.size(2)*2) #(1, batch_size, hidden_size*2)
     c_x = c_x.view(c_x.size(1),c_x.size(2)*2)
-    x_in = x_in.permute(1,0,2) #(seq_len, batch_size, hidden_size*2)
 #    print("h_x.shape", h_x.shape)
 #    print("x_in", x_in.shape)
     for i in range(self.num_steps):
-      c_t = torch.cat((x_in, h_x.unsqueeze(0)), dim=0)
 #      print("c_t.shape", c_t.shape)
-      c_t = c_t.permute(1,0,2)
-      c_t, alpha = self.attn(c_t, seq_lengths+1)
+      c_t, alpha = self.attn(x_in, h_x, seq_lengths+1)
 #      print("c_t.shape", c_t.shape)
-      h_x,c_x = self.lstm_cell(c_t, (h_x,c_x))
+      h_x, c_x = self.lstm_cell(c_t, (h_x,c_x))
 
     return h_x, alpha
 
@@ -144,5 +144,6 @@ class ABLSTM(nn.Module):
     output = self.drop(output)
     
     out = self.label(output) #(batch_size, num_classes)
+    #out_mem = self.mem(output) #(batch_size, 1)
 
     return out, (h, c), alpha
