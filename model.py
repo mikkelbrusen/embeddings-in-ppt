@@ -7,14 +7,15 @@ from torch.autograd import Variable
 from utils import length_to_mask
 
 class Attention(nn.Module):
-  def __init__(self, in_size, att_size):
+  def __init__(self, in_size, hid_size, att_size):
     super(Attention, self).__init__()
     self.linear_in = nn.Linear(in_size, att_size)
+    self.linear_hid = nn.Linear(hid_size, att_size)
     self.linear_att = nn.Linear(att_size, 1, bias=False)
     
   def forward(self, x_in, h_prev, seq_lengths):  # x_in.shape: [bs, seq_len, in_size]
     att_vector = self.linear_in(x_in) # [bs, seq_len, att_size]
-    hid_vector = self.linear_hid(h_prev) # bs,att_size
+    hid_vector = self.linear_hid(h_prev) # [bs, att_size]
 
     att_hid_align = torch.tanh(att_vector + hid_vector.unsqueeze(dim=1))
    
@@ -28,22 +29,20 @@ class Attention(nn.Module):
     return torch.sum(x_in * att, dim=1), alpha # [bs, in_size]
 
 class MultiStepAttention(nn.Module):
-  def __init__(self, input_size, hidden_size, num_steps):
+  def __init__(self, input_size, hidden_size, num_steps=10, num_layers=1):
     super(MultiStepAttention, self).__init__()
+    self.num_layers = num_layers
     self.num_steps = num_steps
-    self.attn = Attention(input_size, input_size//2)
-    self.lstm_cell = nn.LSTMCell(input_size=input_size, hidden_size=2*hidden_size)
+    self.attn = Attention(input_size, hidden_size*self.num_layers, input_size//2)
+    self.lstm_cell = nn.LSTMCell(input_size=input_size, hidden_size=num_layers*hidden_size)
 
   def forward(self, x_in, hidden, seq_lengths): #x_in: (batch_size, seq_len, hidden_size*2)
-    h_x,c_x = hidden #h_x: (2, batch_size, hidden_size)
-    h_x = h_x.view(h_x.size(1),h_x.size(2)*2) #(1, batch_size, hidden_size*2)
-    c_x = c_x.view(c_x.size(1),c_x.size(2)*2)
-#    print("h_x.shape", h_x.shape)
-#    print("x_in", x_in.shape)
+    h_x, c_x = hidden #h_x: (2, batch_size, hidden_size)
+    h_x = h_x.view(h_x.size(1), h_x.size(2)*self.num_layers) #(1, batch_size, hidden_size*2)
+    c_x = c_x.view(c_x.size(1), c_x.size(2)*self.num_layers)
+
     for i in range(self.num_steps):
-#      print("c_t.shape", c_t.shape)
-      c_t, alpha = self.attn(x_in, h_x, seq_lengths+1)
-#      print("c_t.shape", c_t.shape)
+      c_t, alpha = self.attn(x_in, h_x, seq_lengths)
       h_x, c_x = self.lstm_cell(c_t, (h_x,c_x))
 
     return h_x, alpha
@@ -72,7 +71,7 @@ class ABLSTM(nn.Module):
       self.lstm = nn.LSTM(n_feat, n_hid, bidirectional=True, batch_first=True) #input shape: (seq_len, batch_size, feature_size)
     
     self.relu = nn.ReLU()
-    self.multi_attn = MultiStepAttention(n_hid*2, n_hid, 10)
+    self.multi_attn = MultiStepAttention(n_hid*2, n_hid, num_steps=10, num_layers=2)
     #self.attn = Attention(n_hid*2, n_hid) #second param can be small, like n_hid*1
     self.dense = nn.Linear(n_hid*2, n_hid*2)
     self.label = nn.Linear(n_hid*2, n_class)

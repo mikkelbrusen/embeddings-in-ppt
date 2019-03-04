@@ -14,9 +14,8 @@
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
 #BSUB -W 2:00
 
-# request 5GB of system-memory
-#BSUB -R "rusage[mem=5GB]"
-#BSUB -R "select[sxm2]"
+# request 8GB of system-memory
+#BSUB -R "rusage[mem=8GB]"
 
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
