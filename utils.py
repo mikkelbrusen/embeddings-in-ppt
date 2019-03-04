@@ -82,3 +82,19 @@ def length_to_mask(length, max_len=None, dtype=None):
         
     mask = (mask - 1) * 10e6
     return mask
+
+class ResultsContainer():
+  """
+    A simple class containing all type of results 
+    from main script to be used in notebooks for vizualisation
+  """
+  def __init__(self):
+    self.alphas = None
+    self.targets = None
+    self.epochs = 0
+    self.loss_training = []
+    self.loss_validation = []
+    self.acc_training = []
+    self.acc_validation = []
+    self.best_cf_val = None
+    self.best_val_acc = 0
