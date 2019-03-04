@@ -33,7 +33,7 @@ class MultiStepAttention(nn.Module):
     super(MultiStepAttention, self).__init__()
     self.num_layers = num_layers
     self.num_steps = num_steps
-    self.attn = Attention(input_size, hidden_size*self.num_layers, input_size//2)
+    self.attn = Attention(in_size=input_size, hid_size=hidden_size*self.num_layers, att_size=input_size//2)
     self.lstm_cell = nn.LSTMCell(input_size=input_size, hidden_size=num_layers*hidden_size)
 
   def forward(self, x_in, hidden, seq_lengths): #x_in: (batch_size, seq_len, hidden_size*2)
@@ -42,8 +42,8 @@ class MultiStepAttention(nn.Module):
     c_x = c_x.view(c_x.size(1), c_x.size(2)*self.num_layers)
 
     for i in range(self.num_steps):
-      c_t, alpha = self.attn(x_in, h_x, seq_lengths) # c_t: (batch_size, hidden_size*2)
-      h_x, c_x = self.lstm_cell(c_t, (h_x,c_x)) # h_x: (batch_size, hidden_size*2)
+      c_vector, alpha = self.attn(x_in=x_in, h_prev=h_x, seq_lengths=seq_lengths) # c_t: (batch_size, hidden_size*2)
+      h_x, c_x = self.lstm_cell(input=c_vector, hx=(h_x,c_x)) # h_x: (batch_size, hidden_size*2)
 
     return h_x, alpha
 
