@@ -15,8 +15,8 @@ from model import ABLSTM
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/test.npz")
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Hoglund/train.npz")
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Hoglund/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 200", default=400)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
@@ -26,7 +26,7 @@ parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, defaul
 parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
-current_time = time.strftime('%b_%m-%H_%M') # 'Oct_18-09:03'
+current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
 parser.add_argument('-save', '--save', help="Path to best saved model, default = save/best_model_XXX.pt", default="save/best_model_" + current_time + ".pt")
 args = parser.parse_args()
 
