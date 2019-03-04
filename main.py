@@ -16,7 +16,7 @@ from model import ABLSTM
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Hoglund/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Hoglund/test.npz")
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/DeepLoc/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 200", default=400)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
