@@ -203,7 +203,7 @@ for i in range(1,2):
   best_val_acc = 0
   # Network compilation
   print("Compilation model {}".format(i))
-  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5], use_cnn=True).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5], att_size=100, cell_hid_size=100, use_cnn=True).to(device)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets
