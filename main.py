@@ -16,8 +16,8 @@ from model import ABLSTM
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/DeepLoc/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/DeepLoc/test.npz")
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Hoglund/train.npz")
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Hoglund/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 400", default=400)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
@@ -203,7 +203,7 @@ for i in range(1,2):
   best_val_acc = 0
   # Network compilation
   print("Compilation model {}".format(i))
-  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, use_cnn=True).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5], use_cnn=True).to(device)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets
