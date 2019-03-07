@@ -90,6 +90,7 @@ class ResultsContainer():
   """
   def __init__(self):
     self.alphas = None
+    self.seq_lengths = None
     self.targets = None
     self.epochs = 0
     self.loss_training = []

@@ -142,7 +142,7 @@ def evaluate(x,y,mask):
   val_loss = val_err / val_batches
   val_accuracy = confusion_valid.accuracy()
   cf_val = confusion_valid.ret_mat()
-  return val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets)
+  return val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths)
 
 def train():
   model.train()
@@ -224,7 +224,7 @@ for i in range(1,2):
     start_time = time.time()
     confusion_valid = ConfusionMatrix(n_class)
     train_loss, train_accuracy, cf_train = train()
-    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets) = evaluate(X_val, y_val, mask_val)
+    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val)
     
     results.loss_training.append(train_loss)
     results.loss_validation.append(val_loss)
@@ -240,6 +240,7 @@ for i in range(1,2):
       results.best_cf_val = cf_val
       results.alphas = alphas.cpu().detach().numpy()
       results.targets = targets.cpu().detach().numpy()
+      results.seq_lengths = seq_lengths.cpu().detach().numpy()
       best_model = model
     
     print('-' * 13, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 13 )
