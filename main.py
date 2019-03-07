@@ -20,7 +20,7 @@ parser.add_argument('-i', '--trainset',  help="npz file with traning profiles da
 parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Hoglund/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 400", default=400)
-parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=10)
+parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
@@ -30,7 +30,7 @@ parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = b
 parser.add_argument('-att', '--att_size', help="Size of the attention, default = 50", default=256)
 parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
 parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=512)
-parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=True)
+parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=False)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
@@ -279,3 +279,10 @@ print("Average accuracy {:.2f}%".format((sum(best_val_accs)/len(best_val_accs))*
 model = best_model
 model_save(args.save)
 results_save(args.save_results)
+
+test_loss, test_accuracy, cf_test, confusion_test, _ = evaluate(X_test, y_test, mask_test)
+print("FINAL TEST RESULTS")
+print(confusion_test)
+print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
+print("test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
+print("test IC:\t\t{:.2f}".format(IC(cf_test)))
