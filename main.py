@@ -25,6 +25,11 @@ parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
 parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
+parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5,9,15,21])
+parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = bi-direcitonal, default = 2", default=2)
+parser.add_argument('-att', '--att_size', help="Size of the attention, default = 100", default=100)
+parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
+parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=100)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
@@ -50,7 +55,11 @@ num_epochs = int(args.epochs)
 drop_per = float(args.in_dropout)
 drop_hid = float(args.hid_dropout)
 n_filt = int(args.n_filters)
-
+conv_sizes = args.conv_sizes
+direcitons = int(args.directions)
+att_size = int(args.att_size)
+num_steps = int(args.num_steps)
+cell_hid_size = int(args.cell_hid_size)
 
 torch.manual_seed(args.seed)
 np.random.seed(seed=int(args.seed))
@@ -203,7 +212,7 @@ for i in range(1,2):
   best_val_acc = 0
   # Network compilation
   print("Compilation model {}".format(i))
-  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5], att_size=100, cell_hid_size=100, use_cnn=True).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, use_cnn=True).to(device)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets
