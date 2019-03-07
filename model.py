@@ -57,7 +57,7 @@ class MultiStepAttention(nn.Module):
 
 
 class ABLSTM(nn.Module):
-  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, cell_hid_size=100, use_cnn=False):
+  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, cell_hid_size=100, num_steps=10, directions=2, use_cnn=False):
     super(ABLSTM, self).__init__()
     self.use_cnn = use_cnn
     
@@ -73,7 +73,7 @@ class ABLSTM(nn.Module):
       self.lstm = nn.LSTM(n_feat, n_hid, bidirectional=True, batch_first=True) #input shape: (seq_len, batch_size, feature_size)
     
     self.relu = nn.ReLU()
-    self.multi_attn = MultiStepAttention(input_size=n_hid*2, hidden_size=n_hid, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=10, directions=2)
+    self.multi_attn = MultiStepAttention(input_size=n_hid*2, hidden_size=n_hid, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=directions)
     #self.attn = Attention(n_hid*2, n_hid)
     self.dense = nn.Linear(n_hid*2, n_hid*2)
     self.label = nn.Linear(n_hid*2, n_class)
