@@ -25,17 +25,18 @@ parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
 parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
-parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5,9,15,21])
+parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5])
 parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = bi-direcitonal, default = 2", default=2)
-parser.add_argument('-att', '--att_size', help="Size of the attention, default = 100", default=100)
-parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
-parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=100)
+parser.add_argument('-att', '--att_size', help="Size of the attention, default = 50", default=50)
+parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=1)
+parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=512)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
 parser.add_argument('-save', '--save', help="Path to best saved model, default = save/best_model_XXX.pt", default="save/best_model_" + current_time + ".pt")
 parser.add_argument('-sr', '--save_results', help="Path to result object containing all kind of results, default = save/best_results_XXX.pt", default="save/best_results_" + current_time)
 args = parser.parse_args()
+print("Arguments: ", args)
 
 if args.trainset == None or args.testset == None:
 	parser.print_help()
@@ -213,6 +214,8 @@ for i in range(1,2):
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, use_cnn=True).to(device)
+  print("Model: ", model)
+
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets
@@ -265,9 +268,9 @@ for i in range(1,2):
   best_val_accs.append(best_val_acc)
 
 for i, acc in enumerate(best_val_accs):
-  print("Partion {:1d} : acc {:.2f}%".format(i, acc))
+  print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
 
-print("Average accuracy {:.2f}%".format(sum(best_val_accs)/len(best_val_accs)))
+print("Average accuracy {:.2f}%".format((sum(best_val_accs)/len(best_val_accs))*100))
 
 model = best_model
 model_save(args.save)
