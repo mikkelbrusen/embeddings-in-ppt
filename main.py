@@ -20,16 +20,17 @@ parser.add_argument('-i', '--trainset',  help="npz file with traning profiles da
 parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Hoglund/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 400", default=400)
-parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
+parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=10)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
 parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
 parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5])
 parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = bi-direcitonal, default = 2", default=2)
-parser.add_argument('-att', '--att_size', help="Size of the attention, default = 50", default=50)
-parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=1)
+parser.add_argument('-att', '--att_size', help="Size of the attention, default = 50", default=256)
+parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
 parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=512)
+parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=False)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
@@ -61,6 +62,7 @@ direcitons = int(args.directions)
 att_size = int(args.att_size)
 num_steps = int(args.num_steps)
 cell_hid_size = int(args.cell_hid_size)
+is_multi_step = args.is_multi_step
 
 torch.manual_seed(args.seed)
 np.random.seed(seed=int(args.seed))
@@ -213,7 +215,8 @@ for i in range(1,2):
   best_val_acc = 0
   # Network compilation
   print("Compilation model {}".format(i))
-  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, use_cnn=True).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
+  cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step, use_cnn=True).to(device)
   print("Model: ", model)
 
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)

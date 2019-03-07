@@ -7,17 +7,22 @@ from torch.autograd import Variable
 from utils import length_to_mask
 
 class Attention(nn.Module):
-  def __init__(self, in_size, hid_size, att_size):
+  def __init__(self, in_size, hid_size, att_size, is_multi_step=True):
     super(Attention, self).__init__()
+    self.is_multi_step = is_multi_step
     self.linear_in = nn.Linear(in_size, att_size)
-    self.linear_hid = nn.Linear(hid_size, att_size)
+    if (is_multi_step):
+      self.linear_hid = nn.Linear(hid_size, att_size)
     self.linear_att = nn.Linear(att_size, 1, bias=False)
     
-  def forward(self, x_in, h_prev, seq_lengths):  # x_in.shape: [bs, seq_len, in_size]
+  def forward(self, x_in, hidden, seq_lengths):  # x_in.shape: [bs, seq_len, in_size]
     att_vector = self.linear_in(x_in) # [bs, seq_len, att_size]
-    hid_vector = self.linear_hid(h_prev) # [bs, att_size]
 
-    att_hid_align = torch.tanh(att_vector + hid_vector.unsqueeze(dim=1)) # [bs, seq_len, att_size]
+    if (self.is_multi_step):
+      hid_vector = self.linear_hid(hidden) # [bs, att_size]
+      att_vector = att_vector + hid_vector.unsqueeze(dim=1)
+
+    att_hid_align = torch.tanh(att_vector) # [bs, seq_len, att_size]
    
     att_score = self.linear_att(att_hid_align).squeeze(2) # [bs, seq_len]
     
@@ -33,7 +38,7 @@ class MultiStepAttention(nn.Module):
     super(MultiStepAttention, self).__init__()
     self.directions = directions
     self.num_steps = num_steps
-    self.attn = Attention(in_size=input_size, hid_size=cell_hid_size, att_size=att_size)
+    self.attn = Attention(in_size=input_size, hid_size=cell_hid_size, att_size=att_size, is_multi_step=True)
     self.linear_proj = nn.Linear(hidden_size*self.directions, cell_hid_size)
     self.lstm_cell = nn.LSTMCell(input_size=input_size, hidden_size=cell_hid_size)
 
@@ -57,10 +62,12 @@ class MultiStepAttention(nn.Module):
 
 
 class ABLSTM(nn.Module):
-  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, cell_hid_size=100, num_steps=10, directions=2, use_cnn=False):
+  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, 
+  cell_hid_size=100, num_steps=10, directions=2, is_multi_step=True, use_cnn=False):
     super(ABLSTM, self).__init__()
     self.use_cnn = use_cnn
-    
+    self.is_multi_step = is_multi_step
+
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
@@ -73,8 +80,11 @@ class ABLSTM(nn.Module):
       self.lstm = nn.LSTM(n_feat, n_hid, bidirectional=True, batch_first=True) #input shape: (seq_len, batch_size, feature_size)
     
     self.relu = nn.ReLU()
-    self.multi_attn = MultiStepAttention(input_size=n_hid*2, hidden_size=n_hid, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=directions)
-    #self.attn = Attention(n_hid*2, n_hid)
+    if (is_multi_step):
+      self.attn = MultiStepAttention(input_size=n_hid*2, hidden_size=n_hid, att_size=att_size, cell_hid_size=cell_hid_size, num_steps=num_steps, directions=directions)
+    else:
+      self.attn = Attention(n_hid*2, cell_hid_size, n_hid, is_multi_step=is_multi_step)
+
     self.dense = nn.Linear(n_hid*2, n_hid*2)
     self.label = nn.Linear(n_hid*2, n_class)
  
@@ -121,9 +131,8 @@ class ABLSTM(nn.Module):
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, (h, c) = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
-      
-    #attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
-    attn_output, alpha = self.multi_attn(x_in=output, hidden=(h, c), seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
+  
+    attn_output, alpha = self.attn(x_in=output, hidden=(h, c), seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
     output = self.drop(attn_output)
     
     output = self.relu(self.dense(output)) # (batch_size, hidden_size*2)
