@@ -30,7 +30,7 @@ parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = b
 parser.add_argument('-att', '--att_size', help="Size of the attention, default = 50", default=256)
 parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
 parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 100", default=512)
-parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=False)
+parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=True)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
