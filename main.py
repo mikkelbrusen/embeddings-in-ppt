@@ -113,6 +113,63 @@ n_feat = np.shape(X_test)[2]
 ###############################################################################
 # Training code
 ###############################################################################
+def test(x,y,mask,membranes,unks, models):
+  for i in range(len(models)):
+    models[i].eval()
+
+  val_err = 0
+  val_batches = 0
+  confusion_valid = ConfusionMatrix(n_class)
+
+  with torch.no_grad():
+    # Generate minibatches and train on each one of them	
+    for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
+      inputs, targets, in_masks, targets_mem, unk_mem = batch
+
+      seq_lengths = in_masks.sum(1)
+    
+      #sort to be in decending order for pad packed to work
+      perm_idx = np.argsort(-seq_lengths)
+      seq_lengths = seq_lengths[perm_idx]
+      inputs = inputs[perm_idx]
+      targets = targets[perm_idx]
+      targets_mem = targets_mem[perm_idx]
+      unk_mem = unk_mem[perm_idx]
+
+      #convert to tensors
+      seq_lengths = torch.from_numpy(seq_lengths).to(device)
+      inputs = torch.from_numpy(inputs).to(device)
+      inputs = Variable(inputs)
+      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
+
+      outputs = None
+      for i in range(len(models)):
+        (output, output_mem) , _ , _  = models[i](inputs, seq_lengths)
+        if outputs is None:
+          outputs = output
+        else: 
+          outputs = outputs + output
+
+      outputs = torch.div(outputs,4)
+
+      preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
+      confusion_valid.batch_add(targets, preds)
+      
+      targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
+      targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
+      val_err += criterion(input=outputs, target=targets).item()
+      val_batches += 1
+
+
+  val_loss = val_err / val_batches
+  val_accuracy = confusion_valid.accuracy()
+  cf_val = confusion_valid.ret_mat()
+  return val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths)
+
+  
+  
+
+
 
 def evaluate(x,y,mask,membranes,unks):
   model.eval()
@@ -219,10 +276,12 @@ def train():
 results = ResultsContainer()
 best_model = None
 best_val_accs = []
+best_val_models = []
 
 
-for i in range(1,5):
+for i in range(1,3):
   best_val_acc = 0
+  best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
@@ -266,6 +325,7 @@ for i in range(1,5):
     
     if val_accuracy > best_val_acc:
       best_val_acc = val_accuracy
+      best_val_model = model
 
     if best_val_acc > results.best_val_acc:
       results.best_val_acc = best_val_acc
@@ -289,6 +349,7 @@ for i in range(1,5):
     sys.stdout.flush()
 
   best_val_accs.append(best_val_acc)
+  best_val_models.append(best_val_model)
 
 for i, acc in enumerate(best_val_accs):
   print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
@@ -301,6 +362,13 @@ results_save(args.save_results)
 
 test_loss, test_accuracy, cf_test, confusion_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test)
 print("FINAL TEST RESULTS")
+print(confusion_test)
+print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
+print("test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
+print("test IC:\t\t{:.2f}".format(IC(cf_test)))
+
+test_loss, test_accuracy, cf_test, confusion_test, _ = test(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
+print("ENSAMBLE TEST RESULTS")
 print(confusion_test)
 print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
 print("test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
