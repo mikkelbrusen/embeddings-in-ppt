@@ -279,7 +279,7 @@ best_val_accs = []
 best_val_models = []
 
 
-for i in range(1,3):
+for i in range(1,5):
   best_val_acc = 0
   best_val_model = None
   # Network compilation
