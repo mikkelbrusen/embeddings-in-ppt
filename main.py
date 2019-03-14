@@ -105,7 +105,6 @@ partition = train_data['partition']
 mem_train = train_data['mem_train']
 unk_train = train_data['unk_train']
 
-print(unk_train.shape)
 print("Loading complete!")
 
 # Number of features
@@ -142,10 +141,7 @@ def evaluate(x,y,mask,membranes,unks):
       inputs = Variable(inputs)
       unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
 
-      #define criterion
-      criterion_mem_val = nn.BCELoss(weight=unk_mem, reduction="sum")
-
-      output, _ , alphas  = model(inputs, seq_lengths)
+      (output, output_mem) , _ , alphas  = model(inputs, seq_lengths)
 
       preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
       confusion_valid.batch_add(targets, preds)
@@ -194,13 +190,14 @@ def train():
     targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
     targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
 
+    # squeeze from [batch_size,1] -> [batch_size] such that it matches weight matrix for BCE
+    output_mem = output_mem.squeeze(1)
+    targets_mem = targets_mem.squeeze(1)
 
-    print(output_mem)
-    print(targets_mem)
+    # calculate loss
     loss = criterion(input=output, target=targets)
-    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem) #criterion_mem_train(input=output_mem, target=targets_mem)
-    
-    print(loss_mem.shape)
+    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum") #criterion_mem_train(input=output_mem, target=targets_mem)
+    loss_mem = loss_mem / sum(unk_mem)
     total_loss = loss + loss_mem
     total_loss.backward()
 
