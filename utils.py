@@ -2,7 +2,7 @@ import numpy as np
 import random
 import torch
 
-def iterate_minibatches(inputs, targets, masks, batchsize, shuffle=True, sort_len=True, sample_last_batch=True):
+def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize, shuffle=True, sort_len=True, sample_last_batch=True):
   """ Generate minibatches of a specific size 
   Arguments:
     inputs -- numpy array of the encoded protein data. Shape: (n_samples, seq_len, n_features)
@@ -57,6 +57,8 @@ def iterate_minibatches(inputs, targets, masks, batchsize, shuffle=True, sort_le
       in_mask = masks[excerpt]
 
     in_target = targets[excerpt]
+    in_target_mem = targets_mem[excerpt]
+    in_unk_mem = unk_mem[excerpt]
     shuf_ind = np.arange(batchsize)
 
     # Shuffle samples within each minitbatch
@@ -64,7 +66,7 @@ def iterate_minibatches(inputs, targets, masks, batchsize, shuffle=True, sort_le
       #np.random.shuffle(shuf_ind)
 
     # Return a minibatch of each array
-    yield in_seq[shuf_ind], in_target[shuf_ind], in_mask[shuf_ind], len_seq
+    yield in_seq[shuf_ind], in_target[shuf_ind], in_mask[shuf_ind], in_target_mem[shuf_ind], in_unk_mem[shuf_ind]
 
 # Used for attention mechanism
 def length_to_mask(length, max_len=None, dtype=None):

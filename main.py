@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
@@ -88,6 +89,8 @@ train_data = np.load(args.trainset)
 X_test = test_data['X_test']
 y_test = test_data['y_test']
 mask_test = test_data['mask_test']
+mem_test = test_data['mem_test']
+unk_test = test_data['unk_test']
 
 # Initialize utput vectors from test set
 complete_alpha = np.zeros((X_test.shape[0],seq_len))
@@ -99,6 +102,10 @@ X_train = train_data['X_train']
 y_train = train_data['y_train']
 mask_train = train_data['mask_train']
 partition = train_data['partition']
+mem_train = train_data['mem_train']
+unk_train = train_data['unk_train']
+
+print(unk_train.shape)
 print("Loading complete!")
 
 # Number of features
@@ -108,7 +115,7 @@ n_feat = np.shape(X_test)[2]
 # Training code
 ###############################################################################
 
-def evaluate(x,y,mask):
+def evaluate(x,y,mask,membranes,unks):
   model.eval()
   val_err = 0
   val_batches = 0
@@ -116,9 +123,9 @@ def evaluate(x,y,mask):
 
   with torch.no_grad():
     # Generate minibatches and train on each one of them	
-    for batch in iterate_minibatches(x, y, mask, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
-      inputs, targets, in_masks, len_seq = batch
-      
+    for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
+      inputs, targets, in_masks, targets_mem, unk_mem = batch
+
       seq_lengths = in_masks.sum(1)
     
       #sort to be in decending order for pad packed to work
@@ -126,11 +133,17 @@ def evaluate(x,y,mask):
       seq_lengths = seq_lengths[perm_idx]
       inputs = inputs[perm_idx]
       targets = targets[perm_idx]
+      targets_mem = targets_mem[perm_idx]
+      unk_mem = unk_mem[perm_idx]
 
       #convert to tensors
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
       inputs = torch.from_numpy(inputs).to(device)
       inputs = Variable(inputs)
+      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
+
+      #define criterion
+      criterion_mem_val = nn.BCELoss(weight=unk_mem, reduction="sum")
 
       output, _ , alphas  = model(inputs, seq_lengths)
 
@@ -138,6 +151,7 @@ def evaluate(x,y,mask):
       confusion_valid.batch_add(targets, preds)
       
       targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
+      targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
       val_err += criterion(input=output, target=targets).item()
       val_batches += 1
 
@@ -156,8 +170,8 @@ def train():
   confusion_train = ConfusionMatrix(n_class)
 
   # Generate minibatches and train on each one of them	
-  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, batch_size, shuffle=True):
-    inputs, targets, in_masks, len_seq = batch
+  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size, shuffle=True):
+    inputs, targets, in_masks, targets_mem, unk_mem = batch
     seq_lengths = in_masks.sum(1)
     
     #sort to be in decending order for pad packed to work
@@ -165,21 +179,30 @@ def train():
     seq_lengths = seq_lengths[perm_idx]
     inputs = inputs[perm_idx]
     targets = targets[perm_idx]
+    targets_mem = targets_mem[perm_idx]
+    unk_mem = unk_mem[perm_idx]
     
     #convert to tensors
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
     inputs = torch.from_numpy(inputs).to(device)
     inputs = Variable(inputs)
-    
+    unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
 
     optimizer.zero_grad()
-    output, _ , _ = model(inputs, seq_lengths)
+    (output, output_mem) , _ , _ = model(inputs, seq_lengths)
     np_targets = targets
     targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
+    targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
 
-    #loss_mem = criterion(input=output_mem, target=targets_mem)
+
+    print(output_mem)
+    print(targets_mem)
     loss = criterion(input=output, target=targets)
-    loss.backward()
+    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem) #criterion_mem_train(input=output_mem, target=targets_mem)
+    
+    print(loss_mem.shape)
+    total_loss = loss + loss_mem
+    total_loss.backward()
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
     optimizer.step()
@@ -196,7 +219,6 @@ def train():
   return train_loss, train_accuracy, cf_train
 
 # Training
-criterion = nn.CrossEntropyLoss()
 results = ResultsContainer()
 best_model = None
 best_val_accs = []
@@ -221,6 +243,13 @@ for i in range(1,5):
   y_val = y_train[val_index].astype(np.int32)
   mask_tr = mask_train[train_index].astype(np.float32)
   mask_val = mask_train[val_index].astype(np.float32)
+  mem_tr = mem_train[train_index].astype(np.int32)
+  mem_val = mem_train[val_index].astype(np.int32)
+  unk_tr = unk_train[train_index].astype(np.int32)
+  unk_val = unk_train[val_index].astype(np.int32)
+
+  # Optimizers
+  criterion = nn.CrossEntropyLoss()
 
   print("Validation shape: {}".format(X_val.shape))
   print("Training shape: {}".format(X_tr.shape))
@@ -230,7 +259,7 @@ for i in range(1,5):
     start_time = time.time()
     confusion_valid = ConfusionMatrix(n_class)
     train_loss, train_accuracy, cf_train = train()
-    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val)
+    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, mem_tr)
     
     results.loss_training.append(train_loss)
     results.loss_validation.append(val_loss)
@@ -273,7 +302,7 @@ model = best_model
 model_save(args.save)
 results_save(args.save_results)
 
-test_loss, test_accuracy, cf_test, confusion_test, _ = evaluate(X_test, y_test, mask_test)
+test_loss, test_accuracy, cf_test, confusion_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test)
 print("FINAL TEST RESULTS")
 print(confusion_test)
 print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))

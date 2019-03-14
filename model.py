@@ -87,6 +87,7 @@ class ABLSTM(nn.Module):
 
     self.dense = nn.Linear(n_hid*2, n_hid*2)
     self.label = nn.Linear(n_hid*2, n_class)
+    self.mem = nn.Linear(n_hid*2, 1)
  
     self.init_weights()
     
@@ -137,6 +138,6 @@ class ABLSTM(nn.Module):
     output = self.drop(output)
     
     out = self.label(output) #(batch_size, num_classes)
-    #out_mem = self.mem(output) #(batch_size, 1)
+    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
 
-    return out, (h, c), alpha # (h, c), alpha only used for visualization in notebooks
+    return (out, out_mem), (h, c), alpha # (h, c), alpha only used for visualization in notebooks
