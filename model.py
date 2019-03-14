@@ -11,6 +11,7 @@ class Attention(nn.Module):
     super(Attention, self).__init__()
     self.is_multi_step = is_multi_step
     self.linear_in = nn.Linear(in_size, att_size)
+
     if (is_multi_step):
       self.linear_hid = nn.Linear(hid_size, att_size)
     self.linear_att = nn.Linear(att_size, 1, bias=False)
@@ -34,7 +35,7 @@ class Attention(nn.Module):
     return torch.sum(x_in * att, dim=1), alpha # [bs, in_size]
 
 class MultiStepAttention(nn.Module):
-  def __init__(self, input_size, hidden_size, att_size=100, cell_hid_size=100, num_steps=10, directions=2):
+  def __init__(self, input_size, hidden_size, att_size=256, cell_hid_size=512, num_steps=10, directions=2):
     super(MultiStepAttention, self).__init__()
     self.directions = directions
     self.num_steps = num_steps
@@ -67,21 +68,16 @@ class MultiStepAttention(nn.Module):
 
 class ABLSTM(nn.Module):
   def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, 
-  cell_hid_size=100, num_steps=10, directions=2, is_multi_step=True, use_cnn=False):
+  cell_hid_size=100, num_steps=10, directions=2, is_multi_step=True):
     super(ABLSTM, self).__init__()
-    self.use_cnn = use_cnn
     self.is_multi_step = is_multi_step
 
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    if self.use_cnn:
-      self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
-      self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=10*len(self.convs), kernel_size=3, padding= 3//2)
-      self.lstm = nn.LSTM(10*len(self.convs), n_hid, bidirectional=True, batch_first=True)
-      
-    else:
-      self.lstm = nn.LSTM(n_feat, n_hid, bidirectional=True, batch_first=True) #input shape: (seq_len, batch_size, feature_size)
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
+    self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
     if (is_multi_step):
@@ -124,10 +120,8 @@ class ABLSTM(nn.Module):
     x = self.in_drop(inp)  # (batch_size, seq_len, feature_size)
 
     x = x.permute(0, 2, 1)  # (batch_size, feature_size, seq_len)
-
-    if self.use_cnn:
-      conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, feature_size*len(convs), seq_len)
-      x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=60, seq_len)
+    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, feature_size*len(convs), seq_len)
+    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=60, seq_len)
 
     x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=60)
     x = self.drop(x)
