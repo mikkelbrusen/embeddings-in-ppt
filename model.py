@@ -67,8 +67,8 @@ class MultiStepAttention(nn.Module):
 
 
 class ABLSTM(nn.Module):
-  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=100, 
-  cell_hid_size=100, num_steps=10, directions=2, is_multi_step=True):
+  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=256, 
+  cell_hid_size=512, num_steps=10, directions=2, is_multi_step=True):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
 
