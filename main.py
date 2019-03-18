@@ -144,7 +144,7 @@ def test(x,y,mask,membranes,unks, models):
 
       outputs = None
       for i in range(len(models)):
-        (output, output_mem) , _ , _  = models[i](inputs, seq_lengths)
+        (output, output_mem) , _ , alphas  = models[i](inputs, seq_lengths)
         if outputs is None:
           outputs = output
         else: 
@@ -253,9 +253,9 @@ def train():
 
     # calculate loss
     loss = criterion(input=output, target=targets)
-    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum") #criterion_mem_train(input=output_mem, target=targets_mem)
+    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum")
     loss_mem = loss_mem / sum(unk_mem)
-    total_loss = loss + loss_mem
+    total_loss = loss + 0.5 * loss_mem
     total_loss.backward()
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
