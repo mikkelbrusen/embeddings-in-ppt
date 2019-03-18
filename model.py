@@ -122,9 +122,9 @@ class ABLSTM(nn.Module):
 
     x = x.permute(0, 2, 1)  # (batch_size, feature_size, seq_len)
     conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, feature_size*len(convs), seq_len)
-    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=60, seq_len)
+    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
-    x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=60)
+    x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
     x = self.drop(x)
     
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)

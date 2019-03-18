@@ -89,8 +89,8 @@ train_data = np.load(args.trainset)
 X_test = test_data['X_test']
 y_test = test_data['y_test']
 mask_test = test_data['mask_test']
-mem_test = test_data['mem_test']
-unk_test = test_data['unk_test']
+mem_test = test_data['mem_test'].astype(np.int32)
+unk_test = test_data['unk_test'].astype(np.int32)
 
 # Initialize utput vectors from test set
 complete_alpha = np.zeros((X_test.shape[0],seq_len))
@@ -113,13 +113,14 @@ n_feat = np.shape(X_test)[2]
 ###############################################################################
 # Training code
 ###############################################################################
-def test(x,y,mask,membranes,unks, models):
+def evaluate(x, y, mask, membranes, unks, models):
   for i in range(len(models)):
     models[i].eval()
 
   val_err = 0
   val_batches = 0
   confusion_valid = ConfusionMatrix(n_class)
+  confusion_mem_valid = ConfusionMatrix(num_classes=2)
 
   with torch.no_grad():
     # Generate minibatches and train on each one of them	
@@ -140,8 +141,7 @@ def test(x,y,mask,membranes,unks, models):
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
       inputs = torch.from_numpy(inputs).to(device)
       inputs = Variable(inputs)
-      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
-
+      
       outputs = None
       for i in range(len(models)):
         (output, output_mem) , _ , alphas  = models[i](inputs, seq_lengths)
@@ -152,67 +152,21 @@ def test(x,y,mask,membranes,unks, models):
 
       outputs = torch.div(outputs,4)
 
-      preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
+      #Confusion Matrix
+      preds = np.argmax(outputs.cpu().detach().numpy(), axis=-1)
+      mem_preds = torch.round(output_mem).type(torch.int).cpu().detach().numpy()
       confusion_valid.batch_add(targets, preds)
+      confusion_mem_valid.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
       
+      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
       targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
       targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
       val_err += criterion(input=outputs, target=targets).item()
       val_batches += 1
 
-
   val_loss = val_err / val_batches
-  val_accuracy = confusion_valid.accuracy()
-  cf_val = confusion_valid.ret_mat()
-  return val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths)
 
-  
-  
-
-
-
-def evaluate(x,y,mask,membranes,unks):
-  model.eval()
-  val_err = 0
-  val_batches = 0
-  confusion_valid = ConfusionMatrix(n_class)
-
-  with torch.no_grad():
-    # Generate minibatches and train on each one of them	
-    for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
-      inputs, targets, in_masks, targets_mem, unk_mem = batch
-
-      seq_lengths = in_masks.sum(1)
-    
-      #sort to be in decending order for pad packed to work
-      perm_idx = np.argsort(-seq_lengths)
-      seq_lengths = seq_lengths[perm_idx]
-      inputs = inputs[perm_idx]
-      targets = targets[perm_idx]
-      targets_mem = targets_mem[perm_idx]
-      unk_mem = unk_mem[perm_idx]
-
-      #convert to tensors
-      seq_lengths = torch.from_numpy(seq_lengths).to(device)
-      inputs = torch.from_numpy(inputs).to(device)
-      inputs = Variable(inputs)
-      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
-
-      (output, output_mem) , _ , alphas  = model(inputs, seq_lengths)
-
-      preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
-      confusion_valid.batch_add(targets, preds)
-      
-      targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
-      targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
-      val_err += criterion(input=output, target=targets).item()
-      val_batches += 1
-
-
-  val_loss = val_err / val_batches
-  val_accuracy = confusion_valid.accuracy()
-  cf_val = confusion_valid.ret_mat()
-  return val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths)
+  return val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths)
 
 def train():
   model.train()
@@ -221,6 +175,7 @@ def train():
   train_err = 0
   train_batches = 0
   confusion_train = ConfusionMatrix(n_class)
+  confusion_mem_train = ConfusionMatrix(num_classes=2)
 
   # Generate minibatches and train on each one of them	
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size, shuffle=True):
@@ -239,11 +194,18 @@ def train():
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
     inputs = torch.from_numpy(inputs).to(device)
     inputs = Variable(inputs)
-    unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
 
     optimizer.zero_grad()
     (output, output_mem) , _ , _ = model(inputs, seq_lengths)
-    np_targets = targets
+
+    #Confusion Matrix
+    preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
+    
+    mem_preds = torch.round(output_mem).type(torch.int).cpu().detach().numpy()
+    confusion_train.batch_add(targets, preds)
+    confusion_mem_train.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
+    
+    unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
     targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
     targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
 
@@ -263,14 +225,10 @@ def train():
 
     train_err += loss.item()
     train_batches += 1
-    preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
-    confusion_train.batch_add(np_targets, preds)
-
+    
   train_loss = train_err / train_batches
-  train_accuracy = confusion_train.accuracy()
-  cf_train = confusion_train.ret_mat()
   
-  return train_loss, train_accuracy, cf_train
+  return train_loss, confusion_train, confusion_mem_train
 
 # Training
 results = ResultsContainer()
@@ -314,22 +272,22 @@ for i in range(1,5):
   for epoch in range(num_epochs):
     start_time = time.time()
     confusion_valid = ConfusionMatrix(n_class)
-    train_loss, train_accuracy, cf_train = train()
-    val_loss, val_accuracy, cf_val, confusion_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, mem_tr)
+    train_loss, confusion_train, confusion_mem_train = train()
+    val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, mem_tr, [model])
     
     results.loss_training.append(train_loss)
     results.loss_validation.append(val_loss)
-    results.acc_training.append(train_accuracy)
-    results.acc_validation.append(val_accuracy)
+    results.acc_training.append(confusion_train.accuracy())
+    results.acc_validation.append(confusion_valid.accuracy())
     results.epochs += 1
     
-    if val_accuracy > best_val_acc:
-      best_val_acc = val_accuracy
+    if confusion_valid.accuracy() > best_val_acc:
+      best_val_acc = confusion_valid.accuracy()
       best_val_model = model
 
     if best_val_acc > results.best_val_acc:
       results.best_val_acc = best_val_acc
-      results.best_cf_val = cf_val
+      results.best_cf_val = confusion_valid.ret_mat()
       results.alphas = alphas.cpu().detach().numpy()
       results.targets = targets.cpu().detach().numpy()
       results.seq_lengths = seq_lengths.cpu().detach().numpy()
@@ -337,10 +295,10 @@ for i in range(1,5):
     
     print('-' * 13, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 13 )
 
-    print('| Train | loss {:.4f} | acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
-          ' |'.format(train_loss, train_accuracy*100, gorodkin(cf_train), IC(cf_train)))
-    print('| Valid | loss {:.4f} | acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
-          ' |'.format(val_loss, val_accuracy*100, gorodkin(cf_val), IC(cf_val)))
+    print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
+          ' |'.format(train_loss, confusion_train.accuracy()*100, confusion_mem_train.accuracy()*100, gorodkin(confusion_train.ret_mat()), IC(confusion_train.ret_mat())))
+    print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
+          ' |'.format(val_loss, confusion_valid.accuracy()*100, confusion_mem_valid.accuracy()*100, gorodkin(confusion_valid.ret_mat()), IC(confusion_valid.ret_mat())))
     print('-' * 62)
     
     if epoch % 5 == 0 and epoch > 0:
@@ -360,16 +318,18 @@ model = best_model
 model_save(args.save)
 results_save(args.save_results)
 
-test_loss, test_accuracy, cf_test, confusion_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test)
+test_loss, confusion_test, confusion_mem_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test, [model])
 print("FINAL TEST RESULTS")
 print(confusion_test)
-print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
-print("test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
-print("test IC:\t\t{:.2f}".format(IC(cf_test)))
+print(confusion_mem_test)
+print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
+print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
+print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
 
-test_loss, test_accuracy, cf_test, confusion_test, _ = test(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
+test_loss, confusion_test, confusion_mem_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
 print("ENSAMBLE TEST RESULTS")
 print(confusion_test)
-print("test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
-print("test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
-print("test IC:\t\t{:.2f}".format(IC(cf_test)))
+print(confusion_mem_test)
+print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
+print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
+print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
