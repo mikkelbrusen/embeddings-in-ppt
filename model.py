@@ -140,4 +140,4 @@ class ABLSTM(nn.Module):
     out = self.label(output) #(batch_size, num_classes)
     out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
 
-    return (out, out_mem), (h, c), alpha # (h, c), alpha only used for visualization in notebooks
+    return (out, out_mem), alpha # alpha only used for visualization in notebooks

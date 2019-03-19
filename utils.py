@@ -61,10 +61,6 @@ def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize,
     in_unk_mem = unk_mem[excerpt]
     shuf_ind = np.arange(batchsize)
 
-    # Shuffle samples within each minitbatch
-    #if shuffle:
-      #np.random.shuffle(shuf_ind)
-
     # Return a minibatch of each array
     yield in_seq[shuf_ind], in_target[shuf_ind], in_mask[shuf_ind], in_target_mem[shuf_ind], in_unk_mem[shuf_ind]
 
@@ -91,13 +87,37 @@ class ResultsContainer():
     from main script to be used in notebooks for vizualisation
   """
   def __init__(self):
-    self.alphas = None
-    self.seq_lengths = None
-    self.targets = None
+    # util
+    self.best_val_acc = 0
+
+    # epochs
     self.epochs = 0
     self.loss_training = []
     self.loss_validation = []
     self.acc_training = []
     self.acc_validation = []
-    self.best_cf_val = None
-    self.best_val_acc = 0
+
+    # final
+    self.alphas = None
+    self.seq_lengths = None
+    self.targets = None
+    self.cf_test = None
+    self.cf_mem_test = None
+    self.test_acc = 0
+    self.test_mem_acc = 0
+
+  def append_epoch(self, train_loss, val_loss, train_acc, val_acc):
+    self.loss_training.append(train_loss)
+    self.loss_validation.append(val_loss)
+    self.acc_training.append(train_acc)
+    self.acc_validation.append(val_acc)
+    self.epochs += 1
+
+  def set_final(self, alph, seq_len, targets, cf, cf_mem, acc, acc_mem):
+    self.alphas = alph
+    self.seq_lengths = seq_len
+    self.targets = targets
+    self.cf_test = cf
+    self.cf_mem_test = cf_mem
+    self.test_acc = acc
+    self.test_mem_acc = acc_mem

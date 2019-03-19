@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc/train.npz")
 parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc/test.npz")
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
-parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=300)
+parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=200)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
@@ -31,7 +31,7 @@ parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = b
 parser.add_argument('-att', '--att_size', help="Size of the attention, default = 256", default=256)
 parser.add_argument('-ns', '--num_steps', help="Number of steps in attention, default = 10", default=10)
 parser.add_argument('-ch', '--cell_hid_size', help="Number of hidden units in LSTMCell of multistep attention, default = 512", default=512)
-parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=True)
+parser.add_argument('-ms', '--is_multi_step', help="Indicate use of multi step attention, default = True", default=False)
 parser.add_argument('-se', '--seed',  help="Seed for random number init., default = 123456", default=123456)
 parser.add_argument('-clip', '--clip', help="Gradient clipping, default = 2", default=2)
 current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
@@ -142,19 +142,21 @@ def evaluate(x, y, mask, membranes, unks, models):
       inputs = torch.from_numpy(inputs).to(device)
       inputs = Variable(inputs)
       
-      outputs = None
-      for i in range(len(models)):
-        (output, output_mem) , _ , alphas  = models[i](inputs, seq_lengths)
-        if outputs is None:
-          outputs = output
-        else: 
-          outputs = outputs + output
+      (outputs, outputs_mem), alphas = models[0](inputs, seq_lengths)
+      
+      #When multiple models are given, perform ensambling
+      for i in range(1,len(models)):
+        (output, output_mem), alphas  = models[i](inputs, seq_lengths)
+        outputs = outputs + output
+        outputs_mem = outputs_mem + output_mem
 
-      outputs = torch.div(outputs,4)
+      #divide by number of models
+      outputs = torch.div(outputs,len(models))
+      outputs_mem = torch.div(outputs_mem,len(models))
 
       #Confusion Matrix
       preds = np.argmax(outputs.cpu().detach().numpy(), axis=-1)
-      mem_preds = torch.round(output_mem).type(torch.int).cpu().detach().numpy()
+      mem_preds = torch.round(outputs_mem).type(torch.int).cpu().detach().numpy()
       confusion_valid.batch_add(targets, preds)
       confusion_mem_valid.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
       
@@ -178,7 +180,7 @@ def train():
   confusion_mem_train = ConfusionMatrix(num_classes=2)
 
   # Generate minibatches and train on each one of them	
-  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size, shuffle=True):
+  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
     inputs, targets, in_masks, targets_mem, unk_mem = batch
     seq_lengths = in_masks.sum(1)
     
@@ -196,7 +198,7 @@ def train():
     inputs = Variable(inputs)
 
     optimizer.zero_grad()
-    (output, output_mem) , _ , _ = model(inputs, seq_lengths)
+    (output, output_mem), _ = model(inputs, seq_lengths)
 
     #Confusion Matrix
     preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
@@ -224,10 +226,9 @@ def train():
     optimizer.step()
 
     train_err += loss.item()
-    train_batches += 1
-    
+    train_batches += 1 
+
   train_loss = train_err / train_batches
-  
   return train_loss, confusion_train, confusion_mem_train
 
 # Training
@@ -271,15 +272,11 @@ for i in range(1,5):
   
   for epoch in range(num_epochs):
     start_time = time.time()
-    confusion_valid = ConfusionMatrix(n_class)
+
     train_loss, confusion_train, confusion_mem_train = train()
     val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, mem_tr, [model])
     
-    results.loss_training.append(train_loss)
-    results.loss_validation.append(val_loss)
-    results.acc_training.append(confusion_train.accuracy())
-    results.acc_validation.append(confusion_valid.accuracy())
-    results.epochs += 1
+    results.append_epoch(train_loss, val_loss, confusion_train.accuracy(), confusion_valid.accuracy()) 
     
     if confusion_valid.accuracy() > best_val_acc:
       best_val_acc = confusion_valid.accuracy()
@@ -287,22 +284,14 @@ for i in range(1,5):
 
     if best_val_acc > results.best_val_acc:
       results.best_val_acc = best_val_acc
-      results.best_cf_val = confusion_valid.ret_mat()
-      results.alphas = alphas.cpu().detach().numpy()
-      results.targets = targets.cpu().detach().numpy()
-      results.seq_lengths = seq_lengths.cpu().detach().numpy()
       best_model = model
     
-    print('-' * 13, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 13 )
-
+    print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 22 )
     print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
           ' |'.format(train_loss, confusion_train.accuracy()*100, confusion_mem_train.accuracy()*100, gorodkin(confusion_train.ret_mat()), IC(confusion_train.ret_mat())))
     print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
           ' |'.format(val_loss, confusion_valid.accuracy()*100, confusion_mem_valid.accuracy()*100, gorodkin(confusion_valid.ret_mat()), IC(confusion_valid.ret_mat())))
-    print('-' * 62)
-    
-    if epoch % 5 == 0 and epoch > 0:
-      print(confusion_valid)
+    print('-' * 79)
     
     sys.stdout.flush()
 
@@ -312,24 +301,26 @@ for i in range(1,5):
 for i, acc in enumerate(best_val_accs):
   print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
 
-print("Average accuracy {:.2f}%".format((sum(best_val_accs)/len(best_val_accs))*100))
+print("Average validation accuracy {:.2f}% \n".format((sum(best_val_accs)/len(best_val_accs))*100))
 
-model = best_model
-model_save(args.save)
-results_save(args.save_results)
-
-test_loss, confusion_test, confusion_mem_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test, [model])
-print("FINAL TEST RESULTS")
-print(confusion_test)
-print(confusion_mem_test)
-print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
-print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
-print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
-
-test_loss, confusion_test, confusion_mem_test, _ = evaluate(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
+test_loss, confusion_test, confusion_mem_test, (alphas, targets, seq_lengths) = evaluate(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
 print("ENSAMBLE TEST RESULTS")
 print(confusion_test)
 print(confusion_mem_test)
 print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
+print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
 print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
 print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
+
+results.set_final(
+  alph = alphas.cpu().detach().numpy(), 
+  seq_len = seq_lengths.cpu().detach().numpy(), 
+  targets = targets.cpu().detach().numpy(), 
+  cf = confusion_test.ret_mat(),
+  cf_mem = confusion_mem_test.ret_mat(), 
+  acc = confusion_test.accuracy(), 
+  acc_mem = confusion_mem_test.ret_mat())
+
+model = best_model
+model_save(args.save)
+results_save(args.save_results)
