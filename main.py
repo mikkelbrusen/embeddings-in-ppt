@@ -319,7 +319,7 @@ results.set_final(
   cf = confusion_test.ret_mat(),
   cf_mem = confusion_mem_test.ret_mat(), 
   acc = confusion_test.accuracy(), 
-  acc_mem = confusion_mem_test.ret_mat())
+  acc_mem = confusion_mem_test.accuracy())
 
 model = best_model
 model_save(args.save)
