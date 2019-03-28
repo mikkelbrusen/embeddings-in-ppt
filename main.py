@@ -14,11 +14,13 @@ from utils import iterate_minibatches, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
 from model import ABLSTM
+from datautils.dataloader import tokenize_sequence
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc/train.npz")
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc_seq/train.npz")
 parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc/test.npz")
+parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", defaul=True)
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=200)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
@@ -92,11 +94,6 @@ mask_test = test_data['mask_test']
 mem_test = test_data['mem_test'].astype(np.int32)
 unk_test = test_data['unk_test'].astype(np.int32)
 
-# Initialize utput vectors from test set
-complete_alpha = np.zeros((X_test.shape[0],seq_len))
-complete_context = np.zeros((X_test.shape[0],n_hid*2))
-complete_test = np.zeros((X_test.shape[0],n_class))
-
 # Training set
 X_train = train_data['X_train']
 y_train = train_data['y_train']
@@ -105,10 +102,24 @@ partition = train_data['partition']
 mem_train = train_data['mem_train']
 unk_train = train_data['unk_train']
 
+print("X_train.shape", X_train.shape)
+print("X_test.shape", X_test.shape)
+print("y_train[0]", y_train[0])
+
+# Tokenize and remove invalid sequenzes
+if args.is_raw:
+  X_train, mask = tokenize_sequence(X_train)
+
+  X_train = np.asarray(X_train)
+  y_train = y_train[mask]
+  mask_train = mask_train[mask]
+  partition = partition[mask]
+  mem_train = mem_train[mask]
+  unk_train = unk_train[mask]
+
 print("Loading complete!")
 
-# Number of features
-n_feat = np.shape(X_test)[2]
+n_feat = 1
 
 ###############################################################################
 # Training code

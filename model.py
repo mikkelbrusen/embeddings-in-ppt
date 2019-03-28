@@ -72,10 +72,11 @@ class ABLSTM(nn.Module):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
 
+    self.embed = nn.Embedding(20,16)
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=16, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
     self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
     
