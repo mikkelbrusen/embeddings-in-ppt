@@ -23,22 +23,22 @@ class Dictionary(object):
 
 def tokenize_sequence(data, seq_len=1000):
     amino_dictionary = Dictionary()
-    alphabet = 'ACDEFGHIKLMNPQRSTUVWY'
-    illegal = set('BXZ')
+    alphabet = 'ACDEFGHIKLMNPQRSTVWY'
+    illegal = set('BXZU')
 
     for letter in alphabet:
         amino_dictionary.add_word(letter)
 
     data_tokenized = []
     mask_legal = []
-
+    illegals = 0
     for i, entry in enumerate(data):
         sequence = np.empty(seq_len, dtype=int)
-        sequence[:] = -1
-
+        sequence[:] = 20
+        
         # Check if any illegal amino acids
         if any((c in illegal) for c in entry):
-            print("Illegal found at ", i)
+            illegals += 1
             continue
         
         #Add index of valid protein and start tokenizing
@@ -47,7 +47,7 @@ def tokenize_sequence(data, seq_len=1000):
         for j, char in enumerate(entry.split('*')[0]):
             sequence[j] = amino_dictionary.word2idx[char]
         data_tokenized.append(sequence) 
-
+    print("Number of Illegals: ", illegals)
     return data_tokenized, mask_legal
 
 

@@ -19,10 +19,10 @@ from datautils.dataloader import tokenize_sequence
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc_seq/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc/test.npz")
-parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", defaul=True)
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc_seq/test.npz")
+parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=True)
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
-parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=200)
+parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=300)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
@@ -104,7 +104,6 @@ unk_train = train_data['unk_train']
 
 print("X_train.shape", X_train.shape)
 print("X_test.shape", X_test.shape)
-print("y_train[0]", y_train[0])
 
 # Tokenize and remove invalid sequenzes
 if args.is_raw:
@@ -116,6 +115,14 @@ if args.is_raw:
   partition = partition[mask]
   mem_train = mem_train[mask]
   unk_train = unk_train[mask]
+
+  X_test, mask = tokenize_sequence(X_test)
+
+  X_test = np.asarray(X_test)
+  y_test = y_test[mask]
+  mask_test = mask_test[mask]
+  mem_test = mem_test[mask]
+  unk_test = unk_test[mask]
 
 print("Loading complete!")
 
@@ -150,9 +157,8 @@ def evaluate(x, y, mask, membranes, unks, models):
 
       #convert to tensors
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
-      inputs = torch.from_numpy(inputs).to(device)
-      inputs = Variable(inputs)
-      
+      inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device)
+
       (outputs, outputs_mem), alphas = models[0](inputs, seq_lengths)
       
       #When multiple models are given, perform ensambling
@@ -194,7 +200,7 @@ def train():
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
     inputs, targets, in_masks, targets_mem, unk_mem = batch
     seq_lengths = in_masks.sum(1)
-    
+
     #sort to be in decending order for pad packed to work
     perm_idx = np.argsort(-seq_lengths)
     seq_lengths = seq_lengths[perm_idx]
@@ -205,8 +211,7 @@ def train():
     
     #convert to tensors
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
-    inputs = torch.from_numpy(inputs).to(device)
-    inputs = Variable(inputs)
+    inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
 
     optimizer.zero_grad()
     (output, output_mem), _ = model(inputs, seq_lengths)
@@ -285,7 +290,7 @@ for i in range(1,5):
     start_time = time.time()
 
     train_loss, confusion_train, confusion_mem_train = train()
-    val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, mem_tr, [model])
+    val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, unk_val, [model])
     
     results.append_epoch(train_loss, val_loss, confusion_train.accuracy(), confusion_valid.accuracy()) 
     

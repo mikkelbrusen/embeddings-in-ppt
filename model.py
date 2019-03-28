@@ -72,11 +72,11 @@ class ABLSTM(nn.Module):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
 
-    self.embed = nn.Embedding(20,16)
+    self.embed = nn.Embedding(21, 240, padding_idx=20)
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    self.convs = nn.ModuleList([nn.Conv1d(in_channels=16, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=240, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
     self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
     
@@ -119,10 +119,12 @@ class ABLSTM(nn.Module):
               param.data.zero_()
     
   def forward(self,inp, seq_lengths):
-    x = self.in_drop(inp)  # (batch_size, seq_len, feature_size)
+    emb = self.embed(inp) #(batch_size, seq_len, emb_size)
 
-    x = x.permute(0, 2, 1)  # (batch_size, feature_size, seq_len)
-    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, feature_size*len(convs), seq_len)
+    x = self.in_drop(emb)  # (batch_size, seq_len, emb_size)
+
+    x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
+    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
     x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
     x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
