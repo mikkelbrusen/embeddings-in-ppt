@@ -68,15 +68,18 @@ class MultiStepAttention(nn.Module):
 
 class ABLSTM(nn.Module):
   def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=256, 
-  cell_hid_size=512, num_steps=10, directions=2, is_multi_step=True):
+  cell_hid_size=512, num_steps=10, directions=2, is_multi_step=True, is_raw=True):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
+    self.is_raw = is_raw
 
-    self.embed = nn.Embedding(21, 240, padding_idx=20)
+    if (is_raw):
+      self.embed = nn.Embedding(num_embeddings=21, embedding_dim=n_feat, padding_idx=20)
+
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    self.convs = nn.ModuleList([nn.Conv1d(in_channels=240, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
     self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
     
@@ -118,10 +121,11 @@ class ABLSTM(nn.Module):
             if 'bias' in name:
               param.data.zero_()
     
-  def forward(self,inp, seq_lengths):
-    emb = self.embed(inp) #(batch_size, seq_len, emb_size)
-
-    x = self.in_drop(emb)  # (batch_size, seq_len, emb_size)
+  def forward(self, inp, seq_lengths):
+    if (self.is_raw):
+      inp = self.embed(inp) #(batch_size, seq_len, emb_size)
+    
+    x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
 
     x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
     conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)

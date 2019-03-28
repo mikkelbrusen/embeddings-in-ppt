@@ -23,7 +23,7 @@ class Dictionary(object):
 
 def tokenize_sequence(data, seq_len=1000):
     amino_dictionary = Dictionary()
-    alphabet = 'ACDEFGHIKLMNPQRSTVWY'
+    alphabet = 'MANEVILDFWPSGRTKYQHC'
     illegal = set('BXZU')
 
     for letter in alphabet:

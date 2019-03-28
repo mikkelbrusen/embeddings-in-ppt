@@ -18,9 +18,10 @@ from datautils.dataloader import tokenize_sequence
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc_seq/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc_seq/test.npz")
-parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=True)
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc/train.npz")
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc/test.npz")
+parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=False)
+parser.add_argument('-fe', '--n_features',  help="Embedding size if is_raw=True else number of features, default = 20", default=20)
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=300)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
@@ -54,6 +55,8 @@ num_epochs = int(args.epochs)
 drop_per = float(args.in_dropout)
 drop_hid = float(args.hid_dropout)
 n_filt = int(args.n_filters)
+n_feat = int(args.n_features)
+is_raw = args.is_raw
 conv_sizes = args.conv_sizes
 direcitons = int(args.directions)
 att_size = int(args.att_size)
@@ -106,7 +109,7 @@ print("X_train.shape", X_train.shape)
 print("X_test.shape", X_test.shape)
 
 # Tokenize and remove invalid sequenzes
-if args.is_raw:
+if (is_raw):
   X_train, mask = tokenize_sequence(X_train)
 
   X_train = np.asarray(X_train)
@@ -124,9 +127,7 @@ if args.is_raw:
   mem_test = mem_test[mask]
   unk_test = unk_test[mask]
 
-print("Loading complete!")
-
-n_feat = 1
+print("Loading complete!") 
 
 ###############################################################################
 # Training code
@@ -157,7 +158,10 @@ def evaluate(x, y, mask, membranes, unks, models):
 
       #convert to tensors
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
-      inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device)
+      if is_raw:
+        inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
+      else:
+        inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
       (outputs, outputs_mem), alphas = models[0](inputs, seq_lengths)
       
@@ -211,7 +215,10 @@ def train():
     
     #convert to tensors
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
-    inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
+    if is_raw:
+      inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
+    else:
+      inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
     optimizer.zero_grad()
     (output, output_mem), _ = model(inputs, seq_lengths)
@@ -260,7 +267,7 @@ for i in range(1,5):
   # Network compilation
   print("Compilation model {}".format(i))
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
-    cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
+    cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step, is_raw=is_raw).to(device)
   print("Model: ", model)
 
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
