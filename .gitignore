@@ -108,3 +108,4 @@ save/
 *.err
 data/DeepLoc/test.npz
 data/DeepLoc/train.npz
+*.pt

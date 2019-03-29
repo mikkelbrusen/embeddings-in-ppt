@@ -13,7 +13,7 @@ import pickle
 from utils import iterate_minibatches, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
-from model import ABLSTM
+from models.model import ABLSTM
 from datautils.dataloader import tokenize_sequence
 
 
