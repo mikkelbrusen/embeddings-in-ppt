@@ -14,6 +14,8 @@ from utils import iterate_minibatches, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
 from models.model import ABLSTM
+from models.awd_model import AWD_Embedding
+from awd_lstm.loadmodel import load_params 
 from datautils.dataloader import tokenize_sequence
 
 
@@ -260,7 +262,8 @@ best_model = None
 best_val_accs = []
 best_val_models = []
 
-
+embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+load_params(embed_model)
 for i in range(1,5):
   best_val_acc = 0
   best_val_model = None

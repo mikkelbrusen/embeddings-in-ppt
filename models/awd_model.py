@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 
-class RNNModel(nn.Module):
+class AWD_Embedding(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, dropouth=0.5, dropouti=0.5, dropoute=0.1, wdrop=0, tie_weights=False):
-        super(RNNModel, self).__init__()
+    def __init__(self, ntoken, ninp, nhid, nlayers, tie_weights=False):
+        super(AWD_Embedding, self).__init__()
         
         self.encoder = nn.Embedding(ntoken, ninp)
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0) for l in range(nlayers)]
@@ -18,14 +18,9 @@ class RNNModel(nn.Module):
 
         self.init_weights()
 
-        self.rnn_type = rnn_type
         self.ninp = ninp
         self.nhid = nhid
         self.nlayers = nlayers
-        self.dropout = dropout
-        self.dropouti = dropouti
-        self.dropouth = dropouth
-        self.dropoute = dropoute
         self.tie_weights = tie_weights
 
     def init_weights(self):
