@@ -13,16 +13,16 @@ import pickle
 from utils import iterate_minibatches, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
-from models.model import ABLSTM
+from models.model import ABLSTM, StraightToLinear
 from models.awd_model import AWD_Embedding
 from awd_lstm.loadmodel import load_params 
 from datautils.dataloader import tokenize_sequence
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc/train.npz")
-parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc/test.npz")
-parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=False)
+parser.add_argument('-i', '--trainset',  help="npz file with traning profiles data", default="data/Deeploc_seq/train.npz")
+parser.add_argument('-t', '--testset',  help="npz file with test profiles data to calculate final accuracy", default="data/Deeploc_seq/test.npz")
+parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=True)
 parser.add_argument('-fe', '--n_features',  help="Embedding size if is_raw=True else number of features, default = 20", default=20)
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
 parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=300)
@@ -148,7 +148,7 @@ def evaluate(x, y, mask, membranes, unks, models):
     for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
       inputs, targets, in_masks, targets_mem, unk_mem = batch
 
-      seq_lengths = in_masks.sum(1)
+      seq_lengths = in_masks.sum(1).astype(np.int32)
     
       #sort to be in decending order for pad packed to work
       perm_idx = np.argsort(-seq_lengths)
@@ -159,17 +159,24 @@ def evaluate(x, y, mask, membranes, unks, models):
       unk_mem = unk_mem[perm_idx]
 
       #convert to tensors
-      seq_lengths = torch.from_numpy(seq_lengths).to(device)
       if is_raw:
         inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
       else:
         inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
-      (outputs, outputs_mem), alphas = models[0](inputs, seq_lengths)
+      with torch.no_grad():
+        embed_output , embed = embed_model(inputs, hidden)
+
+      embed_output = embed_output.permute(1,0,2).cpu().detach().numpy()
+      embed_array = np.array([embed_output[j,seq_len-1] for j, seq_len in enumerate(seq_lengths)])
+      embed_output = torch.from_numpy(embed_array).to(device)
+
+      seq_lengths = torch.from_numpy(seq_lengths).to(device)
+      (outputs, outputs_mem), alphas = models[0](embed_output, seq_lengths)
       
       #When multiple models are given, perform ensambling
       for i in range(1,len(models)):
-        (output, output_mem), alphas  = models[i](inputs, seq_lengths)
+        (output, output_mem), alphas  = models[i](embed_output, seq_lengths)
         outputs = outputs + output
         outputs_mem = outputs_mem + output_mem
 
@@ -190,7 +197,7 @@ def evaluate(x, y, mask, membranes, unks, models):
       val_batches += 1
 
   val_loss = val_err / val_batches
-
+  
   return val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths)
 
 def train():
@@ -200,12 +207,14 @@ def train():
   train_err = 0
   train_batches = 0
   confusion_train = ConfusionMatrix(n_class)
+  total_time = 0
+  total_slice_time = 0
   confusion_mem_train = ConfusionMatrix(num_classes=2)
 
   # Generate minibatches and train on each one of them	
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
     inputs, targets, in_masks, targets_mem, unk_mem = batch
-    seq_lengths = in_masks.sum(1)
+    seq_lengths = in_masks.sum(1).astype(np.int32)
 
     #sort to be in decending order for pad packed to work
     perm_idx = np.argsort(-seq_lengths)
@@ -216,14 +225,28 @@ def train():
     unk_mem = unk_mem[perm_idx]
     
     #convert to tensors
-    seq_lengths = torch.from_numpy(seq_lengths).to(device)
     if is_raw:
       inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
     else:
       inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
+    
+    start_time_0 = time.time()
+    with torch.no_grad():
+      embed_output , embed = embed_model(inputs, hidden)
+    #print("Emb shape: ", embed_output.shape)
+    total_time += time.time() - start_time_0
 
+    start_time_1 = time.time()
+
+    embed_output = embed_output.permute(1,0,2).cpu().detach().numpy()
+    embed_array = np.array([embed_output[j,seq_len-1] for j, seq_len in enumerate(seq_lengths)])
+    embed_output = torch.from_numpy(embed_array).to(device)
+
+    seq_lengths = torch.from_numpy(seq_lengths).to(device)
     optimizer.zero_grad()
-    (output, output_mem), _ = model(inputs, seq_lengths)
+
+    total_slice_time += time.time() - start_time_1
+    (output, output_mem), _ = model(embed_output, seq_lengths)
 
     #Confusion Matrix
     preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
@@ -253,6 +276,8 @@ def train():
     train_err += loss.item()
     train_batches += 1 
 
+  print("Time: ", total_time)
+  print("Time 1: ", total_slice_time)
   train_loss = train_err / train_batches
   return train_loss, confusion_train, confusion_mem_train
 
@@ -264,15 +289,17 @@ best_val_models = []
 
 embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
 load_params(embed_model)
+hidden = embed_model.init_hidden(batch_size)
+
 for i in range(1,5):
   best_val_acc = 0
   best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
-  model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
-    cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step, is_raw=is_raw).to(device)
+  #model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
+  #  cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
+  model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=drop_per).to(device)
   print("Model: ", model)
-
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
   # Train and validation sets

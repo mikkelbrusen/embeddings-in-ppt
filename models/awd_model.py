@@ -9,7 +9,6 @@ class AWD_Embedding(nn.Module):
         
         self.encoder = nn.Embedding(ntoken, ninp)
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0) for l in range(nlayers)]
-        print(self.rnns)
         self.rnns = torch.nn.ModuleList(self.rnns)
         self.decoder = nn.Linear(nhid, ntoken)
 
@@ -31,10 +30,9 @@ class AWD_Embedding(nn.Module):
 
     def forward(self, input, hidden, return_h=False):
         emb = self.encoder(input)
-
+        emb = emb.permute(1,0,2)
         raw_output = emb
         new_hidden = []
-        #raw_output, hidden = self.rnn(emb, hidden)
         raw_outputs = []
         outputs = []
         for l, rnn in enumerate(self.rnns):
@@ -49,7 +47,7 @@ class AWD_Embedding(nn.Module):
         output = raw_output
         outputs.append(output)
 
-        result = output.view(output.size(0)*output.size(1), output.size(2))
+        result = output # output.view(output.size(0)*output.size(1), output.size(2))
         if return_h:
             return result, hidden, raw_outputs, outputs
         return result, hidden
