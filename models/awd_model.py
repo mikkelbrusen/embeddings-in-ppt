@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from awd_lstm.weight_drop import WeightDrop
+
 class AWD_Embedding(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
@@ -8,7 +10,10 @@ class AWD_Embedding(nn.Module):
         super(AWD_Embedding, self).__init__()
         
         self.encoder = nn.Embedding(ntoken, ninp)
+        
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0) for l in range(nlayers)]
+        self.rnns = [WeightDrop(rnn, ['weight_hh_l0'], dropout=0) for rnn in self.rnns]
+
         self.rnns = torch.nn.ModuleList(self.rnns)
         self.decoder = nn.Linear(nhid, ntoken)
 
