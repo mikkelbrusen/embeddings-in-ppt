@@ -29,7 +29,7 @@ parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20"
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
-parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
+parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=200)
 parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5,9,15,21])
 parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = bi-direcitonal, default = 2", default=2)
 parser.add_argument('-att', '--att_size', help="Size of the attention, default = 256", default=256)
@@ -133,6 +133,28 @@ print("Loading complete!")
 ###############################################################################
 # Training code
 ###############################################################################
+def prepare_tensors(batch):
+  inputs, targets, in_masks, targets_mem, unk_mem = batch
+
+  seq_lengths = in_masks.sum(1).astype(np.int32)
+
+  #sort to be in decending order for pad packed to work
+  perm_idx = np.argsort(-seq_lengths)
+  seq_lengths = seq_lengths[perm_idx]
+  inputs = inputs[perm_idx]
+  targets = targets[perm_idx]
+  targets_mem = targets_mem[perm_idx]
+  unk_mem = unk_mem[perm_idx]
+
+  #convert to tensors
+  if is_raw:
+    inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
+  else:
+    inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
+
+  seq_lengths = torch.from_numpy(seq_lengths).to(device)
+  return inputs, seq_lengths, targets, targets_mem, unk_mem
+
 def evaluate(x, y, mask, membranes, unks, models):
   embed_model.eval()
   for i in range(len(models)):
@@ -146,27 +168,9 @@ def evaluate(x, y, mask, membranes, unks, models):
   with torch.no_grad():
     # Generate minibatches and train on each one of them	
     for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
-      inputs, targets, in_masks, targets_mem, unk_mem = batch
+      inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
 
-      seq_lengths = in_masks.sum(1).astype(np.int32)
-    
-      #sort to be in decending order for pad packed to work
-      perm_idx = np.argsort(-seq_lengths)
-      seq_lengths = seq_lengths[perm_idx]
-      inputs = inputs[perm_idx]
-      targets = targets[perm_idx]
-      targets_mem = targets_mem[perm_idx]
-      unk_mem = unk_mem[perm_idx]
-
-      #convert to tensors
-      if is_raw:
-        inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
-      else:
-        inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
-
-      seq_lengths = torch.from_numpy(seq_lengths).to(device)
-      with torch.no_grad():
-        embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+      embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
 
       model_input = embed_output #embed[-1][0].squeeze(0)
       model_input = model_input.permute(1,0,2)
@@ -189,9 +193,7 @@ def evaluate(x, y, mask, membranes, unks, models):
       confusion_valid.batch_add(targets, preds)
       confusion_mem_valid.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
       
-      unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
       targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
-      targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
       val_err += criterion(input=outputs, target=targets).item()
       val_batches += 1
 
@@ -211,24 +213,8 @@ def train():
 
   # Generate minibatches and train on each one of them	
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
-    inputs, targets, in_masks, targets_mem, unk_mem = batch
-    seq_lengths = in_masks.sum(1).astype(np.int32)
+    inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
 
-    #sort to be in decending order for pad packed to work
-    perm_idx = np.argsort(-seq_lengths)
-    seq_lengths = seq_lengths[perm_idx]
-    inputs = inputs[perm_idx]
-    targets = targets[perm_idx]
-    targets_mem = targets_mem[perm_idx]
-    unk_mem = unk_mem[perm_idx]
-    
-    #convert to tensors
-    if is_raw:
-      inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(device) # (batch_size, seq_len)
-    else:
-      inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
-    
-    seq_lengths = torch.from_numpy(seq_lengths).to(device)
     with torch.no_grad():
       embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
 
@@ -257,8 +243,8 @@ def train():
     loss = criterion(input=output, target=targets)
     loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum")
     loss_mem = loss_mem / sum(unk_mem)
-    total_loss = loss + 0.5 * loss_mem
-    total_loss.backward()
+    combined_loss = loss + 0.5 * loss_mem
+    combined_loss.backward()
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
     optimizer.step()
@@ -288,9 +274,9 @@ for i in range(1,5):
   best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
-  #model = ABLSTM(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
-  #  cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
-  model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=drop_per).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
+    cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
+  #model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=drop_per).to(device)
   print("Model: ", model)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	

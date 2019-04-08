@@ -68,12 +68,12 @@ class MultiStepAttention(nn.Module):
 
 
 class ABLSTM(nn.Module):
-  def __init__(self, batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=256, 
+  def __init__(self, batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=[1,3,5,9,15,21], att_size=256, 
   cell_hid_size=512, num_steps=10, directions=2, is_multi_step=True):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
 
-    self.in_drop = nn.Dropout2d(drop_per)
+    #self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
     #self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
@@ -119,8 +119,8 @@ class ABLSTM(nn.Module):
               param.data.zero_()
     
   def forward(self, inp, seq_lengths):
-    
-    x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
+    x = inp
+    #x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
 
     #x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
     #conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
@@ -144,9 +144,9 @@ class ABLSTM(nn.Module):
 
     return (out, out_mem), alpha # alpha only used for visualization in notebooks
 
-class StraightToLinear(nn.Module):
+class SimpleAttention(nn.Module):
   def __init__(self, batch_size, n_hid, n_class, drop_per, att_size=256):
-    super(StraightToLinear, self).__init__()
+    super(SimpleAttention, self).__init__()
 
     self.attn = Attention(in_size=n_hid, att_size=att_size, is_multi_step=False)
     self.in_drop = nn.Dropout2d(drop_per)
@@ -167,3 +167,37 @@ class StraightToLinear(nn.Module):
     out_mem = torch.sigmoid(self.mem(attn_output)) #(batch_size, 1)
 
     return (out, out_mem), alpha # alpha only used for visualization in notebooks
+
+class StraightToLinear(nn.Module):
+  def __init__(self, batch_size, n_hid, n_class, drop_per, att_size=256):
+    super(StraightToLinear, self).__init__()
+
+    self.relu = nn.ReLU()
+    self.dense1 = nn.Linear(n_hid, n_hid)
+    self.dense2 = nn.Linear(n_hid, n_hid)
+    #self.dense3 = nn.Linear(n_hid, n_hid)
+    self.label = nn.Linear(n_hid, n_class)
+    self.mem = nn.Linear(n_hid, 1)
+ 
+    self.init_weights()
+    
+    
+  def init_weights(self):
+    self.dense1.bias.data.zero_()
+    torch.nn.init.orthogonal_(self.dense1.weight.data, gain=math.sqrt(2))
+    self.dense2.bias.data.zero_()
+    torch.nn.init.orthogonal_(self.dense2.weight.data, gain=math.sqrt(2))
+    #self.dense3.bias.data.zero_()
+    #torch.nn.init.orthogonal_(self.dense3.weight.data, gain=math.sqrt(2)) 
+    self.label.bias.data.zero_()
+    torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
+
+  def forward(self, inp, seq_lengths):
+
+    output = self.relu(self.dense1(inp))
+    output = self.relu(self.dense2(output))
+    #output = self.relu(self.dense3(output))
+    out = self.label(output) #(batch_size, num_classes)
+    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
+
+    return (out, out_mem), None # alpha only used for visualization in notebooks
