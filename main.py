@@ -275,7 +275,7 @@ best_model = None
 best_val_accs = []
 best_val_models = []
 
-embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True).to(device)
 with open("awd_lstm/test_v2_statedict.pt", 'rb') as f:
 		state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
 embed_model.load_state_dict(state_dict)
