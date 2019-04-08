@@ -15,7 +15,7 @@
 #BSUB -W 10:00
 
 # request 8GB of system-memory
-#BSUB -R "rusage[mem=8GB]"
+#BSUB -R "rusage[mem=12GB]"
 
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --

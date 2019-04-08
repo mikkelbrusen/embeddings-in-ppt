@@ -28,16 +28,18 @@ class AWD_Embedding(nn.Module):
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, input, hidden, return_h=False):
+    def forward(self, input, hidden, seq_lengths, return_h=False):
         emb = self.encoder(input)
         emb = emb.permute(1,0,2)
         raw_output = emb
         new_hidden = []
         raw_outputs = []
         outputs = []
+
         for l, rnn in enumerate(self.rnns):
-            current_input = raw_output
-            raw_output, new_h = rnn(raw_output, hidden[l])
+            raw_output = nn.utils.rnn.pack_padded_sequence(raw_output, seq_lengths)
+            packed_output, new_h = rnn(raw_output, hidden[l])
+            raw_output, _ = nn.utils.rnn.pad_packed_sequence(packed_output)
             new_hidden.append(new_h)
             raw_outputs.append(raw_output)
             if l != self.nlayers - 1:

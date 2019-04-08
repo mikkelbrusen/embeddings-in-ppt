@@ -148,7 +148,7 @@ class StraightToLinear(nn.Module):
   def __init__(self, batch_size, n_hid, n_class, drop_per, att_size=256):
     super(StraightToLinear, self).__init__()
 
-    #self.attn = Attention(in_size=n_hid, att_size=att_size, is_multi_step=False)
+    self.attn = Attention(in_size=n_hid, att_size=att_size, is_multi_step=False)
     self.in_drop = nn.Dropout2d(drop_per)
     self.label = nn.Linear(n_hid, n_class)
     self.mem = nn.Linear(n_hid, 1)
@@ -162,8 +162,8 @@ class StraightToLinear(nn.Module):
 
   def forward(self, inp, seq_lengths):
     output = self.in_drop(inp) #(batch_size, seq_len, emb_size)
+    attn_output, alpha = self.attn(x_in=output, hidden=None, seq_lengths=seq_lengths) #(batch_size, hidden_size)
+    out = self.label(attn_output) #(batch_size, num_classes)
+    out_mem = torch.sigmoid(self.mem(attn_output)) #(batch_size, 1)
 
-    out = self.label(output) #(batch_size, num_classes)
-    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
-
-    return (out, out_mem), None # alpha only used for visualization in notebooks
+    return (out, out_mem), alpha # alpha only used for visualization in notebooks

@@ -164,19 +164,18 @@ def evaluate(x, y, mask, membranes, unks, models):
       else:
         inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
-      with torch.no_grad():
-        embed_output , embed = embed_model(inputs, hidden)
-
-      embed_output = embed_output.permute(1,0,2).cpu().detach().numpy()
-      embed_array = np.array([embed_output[j,seq_len-1] for j, seq_len in enumerate(seq_lengths)])
-      embed_output = torch.from_numpy(embed_array).to(device)
-
       seq_lengths = torch.from_numpy(seq_lengths).to(device)
-      (outputs, outputs_mem), alphas = models[0](embed_output, seq_lengths)
+      with torch.no_grad():
+        embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+
+      model_input = embed_output #embed[-1][0].squeeze(0)
+      model_input = model_input.permute(1,0,2)
+
+      (outputs, outputs_mem), alphas = models[0](model_input, seq_lengths)
       
       #When multiple models are given, perform ensambling
       for i in range(1,len(models)):
-        (output, output_mem), alphas  = models[i](embed_output, seq_lengths)
+        (output, output_mem), alphas  = models[i](model_input, seq_lengths)
         outputs = outputs + output
         outputs_mem = outputs_mem + output_mem
 
@@ -207,8 +206,6 @@ def train():
   train_err = 0
   train_batches = 0
   confusion_train = ConfusionMatrix(n_class)
-  total_time = 0
-  total_slice_time = 0
   confusion_mem_train = ConfusionMatrix(num_classes=2)
 
   # Generate minibatches and train on each one of them	
@@ -230,23 +227,15 @@ def train():
     else:
       inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
     
-    start_time_0 = time.time()
-    with torch.no_grad():
-      embed_output , embed = embed_model(inputs, hidden)
-    #print("Emb shape: ", embed_output.shape)
-    total_time += time.time() - start_time_0
-
-    start_time_1 = time.time()
-
-    embed_output = embed_output.permute(1,0,2).cpu().detach().numpy()
-    embed_array = np.array([embed_output[j,seq_len-1] for j, seq_len in enumerate(seq_lengths)])
-    embed_output = torch.from_numpy(embed_array).to(device)
-
     seq_lengths = torch.from_numpy(seq_lengths).to(device)
-    optimizer.zero_grad()
+    with torch.no_grad():
+      embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
 
-    total_slice_time += time.time() - start_time_1
-    (output, output_mem), _ = model(embed_output, seq_lengths)
+    model_input = embed_output #embed[-1][0].squeeze(0)
+    model_input = model_input.permute(1,0,2)
+    
+    optimizer.zero_grad()
+    (output, output_mem), _ = model(model_input, seq_lengths)
 
     #Confusion Matrix
     preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
@@ -276,8 +265,6 @@ def train():
     train_err += loss.item()
     train_batches += 1 
 
-  print("Time: ", total_time)
-  print("Time 1: ", total_slice_time)
   train_loss = train_err / train_batches
   return train_loss, confusion_train, confusion_mem_train
 
