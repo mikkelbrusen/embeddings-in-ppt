@@ -12,7 +12,7 @@
 #BSUB -gpu "num=1:mode=exclusive_process"
 
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
-#BSUB -W 10:00
+#BSUB -W 23:00
 
 # request 8GB of system-memory
 #BSUB -R "rusage[mem=12GB]"

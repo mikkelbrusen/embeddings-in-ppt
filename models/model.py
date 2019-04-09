@@ -15,11 +15,11 @@ class ABLSTM(nn.Module):
     super(ABLSTM, self).__init__()
     self.is_multi_step = is_multi_step
 
-    #self.in_drop = nn.Dropout2d(drop_per)
+    self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    #self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
-    #self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(320, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
@@ -61,15 +61,15 @@ class ABLSTM(nn.Module):
               param.data.zero_()
     
   def forward(self, inp, seq_lengths):
-    x = inp
-    #x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
+    #x = inp
+    x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
 
-    #x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
-    #conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
-    #x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
+    x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
+    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
+    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
-    #x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
-    #x = self.drop(x)
+    x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
+    x = self.drop(x)
     
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, (h, c) = self.lstm(pack) #h = (2, batch_size, hidden_size)
@@ -112,30 +112,32 @@ class StraightToLinear(nn.Module):
   def __init__(self, batch_size, n_hid, n_class, drop_per, att_size=256):
     super(StraightToLinear, self).__init__()
 
+    #self.drop = nn.Dropout(drop_per)
     self.relu = nn.ReLU()
     self.dense1 = nn.Linear(n_hid, n_hid)
-    self.dense2 = nn.Linear(n_hid, n_hid)
+    #self.dense2 = nn.Linear(n_hid, n_hid)
     #self.dense3 = nn.Linear(n_hid, n_hid)
     self.label = nn.Linear(n_hid, n_class)
     self.mem = nn.Linear(n_hid, 1)
  
-    self.init_weights()
+    #self.init_weights()
     
     
   def init_weights(self):
     self.dense1.bias.data.zero_()
     torch.nn.init.orthogonal_(self.dense1.weight.data, gain=math.sqrt(2))
-    self.dense2.bias.data.zero_()
-    torch.nn.init.orthogonal_(self.dense2.weight.data, gain=math.sqrt(2))
+    #self.dense2.bias.data.zero_()
+    #torch.nn.init.orthogonal_(self.dense2.weight.data, gain=math.sqrt(2))
     #self.dense3.bias.data.zero_()
     #torch.nn.init.orthogonal_(self.dense3.weight.data, gain=math.sqrt(2)) 
-    self.label.bias.data.zero_()
-    torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
+    #self.label.bias.data.zero_()
+    #torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
 
   def forward(self, inp, seq_lengths):
 
     output = self.relu(self.dense1(inp))
-    output = self.relu(self.dense2(output))
+    #output = self.drop(output)
+    #output = self.relu(self.dense2(output))
     #output = self.relu(self.dense3(output))
     out = self.label(output) #(batch_size, num_classes)
     out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
