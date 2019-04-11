@@ -29,7 +29,7 @@ parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20"
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
 parser.add_argument('-hd', '--hid_dropout',  help="Hidden layers dropout, default = 0.5", default=0.5)
-parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=200)
+parser.add_argument('-hn', '--n_hid',  help="Number of hidden units, default = 256", default=256)
 parser.add_argument('-cv', '--conv_sizes', nargs='+', help="Number of hidden units, default = [1,3,5,9,15,21]", default=[1,3,5,9,15,21])
 parser.add_argument('-d', '--directions', help="Number of LSTM directions. 2 = bi-direcitonal, default = 2", default=2)
 parser.add_argument('-att', '--att_size', help="Size of the attention, default = 256", default=256)
@@ -172,8 +172,10 @@ def evaluate(x, y, mask, membranes, unks, models):
 
       embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
 
-      model_input =  embed[-1][0].squeeze(0) #embed_output
-      #model_input = model_input.permute(1,0,2)
+      #model_input =  embed[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+
+      model_input = embed_output # (seq_len, bs, emb_size) Use all hidden states
+      model_input = model_input.permute(1,0,2) # (bs,seq_len,emb_size) Use all hidden states
 
       (outputs, outputs_mem), alphas = models[0](model_input, seq_lengths)
       
@@ -218,8 +220,10 @@ def train():
     with torch.no_grad():
       embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
 
-    model_input =  embed[-1][0].squeeze(0) #embed_output
-    #model_input = model_input.permute(1,0,2)
+    #model_input =  embed[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+
+    model_input = embed_output # (seq_len, bs, emb_size) Use all hidden states
+    model_input = model_input.permute(1,0,2) # (bs,seq_len,emb_size) Use all hidden states
     
     optimizer.zero_grad()
     (output, output_mem), _ = model(model_input, seq_lengths)
@@ -274,9 +278,9 @@ for i in range(1,5):
   best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
-  #model = ABLSTM(batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
-  #  cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
-  model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=0.5).to(device)
+  model = ABLSTM(batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
+    cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
+  #model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=0.5).to(device)
   print("Model: ", model)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	

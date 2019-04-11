@@ -18,8 +18,8 @@ class ABLSTM(nn.Module):
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
     
-    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
-    self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
+    #self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    #self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(320, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
@@ -64,11 +64,11 @@ class ABLSTM(nn.Module):
     #x = inp
     x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
 
-    x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
-    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
-    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
+    #x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
+    #conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
+    #x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
-    x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
+    #x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
     x = self.drop(x)
     
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
