@@ -104,7 +104,7 @@ venv.bak/
 .mypy_cache/
 .vscode/
 save/
-*.out
+hpc-output/*.out
 *.err
 data/DeepLoc/test.npz
 data/DeepLoc/train.npz
