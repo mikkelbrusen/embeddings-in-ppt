@@ -109,3 +109,4 @@ hpc-output/*.out
 data/DeepLoc/test.npz
 data/DeepLoc/train.npz
 *.pt
+*.npy
