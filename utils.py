@@ -53,8 +53,8 @@ def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize,
       in_seq = inputs[excerpt][:,:max_prot]
       in_mask = masks[excerpt][:,:max_prot]
     else:
-      in_seq = inputs[excerpt]
-      in_mask = masks[excerpt]
+      in_seq = inputs[excerpt][:,:max_prot]
+      in_mask = masks[excerpt][:,:max_prot]
 
     in_target = targets[excerpt]
     in_target_mem = targets_mem[excerpt]
