@@ -238,11 +238,11 @@ class gen_data():
             batch['length'][i] = self._data_dict['length_valid'][idx]
             i += 1
             if i >= self._batch_size:
-                yield self._chop_batch(batch, i), i
+                yield self._chop_batch(batch, i)
                 batch = self._batch_init()
                 i = 0
         if i != 0:
-            yield self._chop_batch(batch, i), i
+            yield self._chop_batch(batch, i)
 
     def gen_test(self):
         batch = self._batch_init()
