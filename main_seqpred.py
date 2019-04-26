@@ -4,6 +4,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import sys
 import time
+from torchcrf import CRF
 sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred 
@@ -67,22 +68,24 @@ def train():
         mask = batch['mask'][perm_idx]
         inp = Variable(torch.from_numpy(inputs).type(torch.float)).to(device)
         seq_lens = Variable(torch.from_numpy(seq_lengths).type(torch.int32)).to(device)
-        mask = Variable(torch.from_numpy(mask).type(torch.float)).to(device)
+        mask = Variable(torch.from_numpy(mask).type(torch.ByteTensor)).to(device)
         targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
 
         optimizer.zero_grad()
         output = model(inp=inp, seq_lengths=seq_lens)
-    
+        
         # calculate loss
-        loss = 0
+        #loss = 0
         loss_preds = output.permute(1,0,2)
         loss_mask = mask.permute(1,0)
         loss_targets = targets.permute(1,0)
-        for i in range(loss_preds.size(0)):
-            loss += sum(F.nll_loss(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])/sum(loss_mask[i])
+        #for i in range(loss_preds.size(0)):
+        #    loss += sum(F.nll_loss(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])/sum(loss_mask[i])
+        loss = crf(loss_preds, loss_targets, loss_mask)
         loss.backward()
 
-        accuracy += calculate_accuracy(preds=output, targets=targets, mask=mask)
+        preds = torch.tensor(crf.decode(emissions=loss_preds), dtype=torch.int64)
+        accuracy += calculate_accuracy(preds=preds, targets=targets, mask=mask)
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
         optimizer.step()
@@ -98,8 +101,8 @@ def train():
     return train_loss, total_accuracy
 
 def calculate_accuracy(preds, targets, mask):
-    preds = preds.argmax(2).type(torch.float)
-    correct = preds.eq(targets.type(torch.float)).type(torch.float) * mask
+    #preds = preds.argmax(2).type(torch.float)
+    correct = preds.type(torch.float).eq(targets.type(torch.float)).type(torch.float) * mask.type(torch.float)
     return torch.sum(correct) / torch.sum(mask)
     
 
@@ -108,7 +111,7 @@ model = SeqPred().to(device)
 print("Model: ", model)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 data_gen = data.gen_data(num_iterations=2, batch_size=64)
-
+crf = CRF(num_tags=8)
 for epoch in range(num_epochs):
     start_time = time.time()
 
