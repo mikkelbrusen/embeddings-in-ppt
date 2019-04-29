@@ -10,10 +10,10 @@ import argparse
 import sys
 import pickle
 
-from utils import iterate_minibatches, ResultsContainer
+from utils import iterate_minibatches, ResultsContainer, tensor_to_onehot
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
-from models.model import ABLSTM, StraightToLinear
+from models.model import ABLSTM, StraightToLinear, SeqVec
 from models.awd_model import AWD_Embedding
 from datautils.dataloader import tokenize_sequence
 
@@ -174,7 +174,14 @@ def evaluate(x, y, mask, membranes, unks, models):
 
       #model_input =  embed[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
 
+      #one_hot_inputs = tensor_to_onehot(inputs,n_feat+1).to(device)
+      #one_hot_inputs = one_hot_inputs.permute(1,0,2)
+      
+      #averaged_hidden = (raw_embeds[0] + raw_embeds[1]) #(seq_len, bs, emb_size)
+      #averaged_hidden = torch.cat((averaged_hidden, one_hot_inputs),dim=2)
+
       model_input = embed_output # (seq_len, bs, emb_size) Use all hidden states
+      #model_input = averaged_hidden #(seq_len, bs, emb_size)
       model_input = model_input.permute(1,0,2) # (bs,seq_len,emb_size) Use all hidden states
 
       (outputs, outputs_mem), alphas = models[0](model_input, seq_lengths)
