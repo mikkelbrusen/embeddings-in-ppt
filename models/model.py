@@ -143,3 +143,28 @@ class StraightToLinear(nn.Module):
     out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
 
     return (out, out_mem), None # alpha only used for visualization in notebooks
+
+class SeqVec(nn.Module):
+  def __init__(self, batch_size, inp_size, n_hid, n_class, drop_per):
+    super(SeqVec, self).__init__()
+    self.linear = nn.Linear(inp_size, n_hid)
+    self.drop = nn.Dropout(drop_per)
+    self.relu = nn.ReLU()
+    self.bn = nn.BatchNorm1d(32)
+    self.label = nn.Linear(n_hid, n_class)
+    self.mem = nn.Linear(n_hid, 1)
+    
+    self.init_weights()
+    
+  def init_weights(self):
+    self.linear.bias.data.zero_()
+    torch.nn.init.orthogonal_(self.linear.weight.data, gain=math.sqrt(2))
+
+  def forward(self, inp, seq_lengths):
+
+    output = self.bn(self.relu(self.drop(self.linear(inp))))
+
+    out = self.label(output) #(batch_size, num_classes)
+    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
+
+    return (out, out_mem), None # alpha only used for visualization in notebooks

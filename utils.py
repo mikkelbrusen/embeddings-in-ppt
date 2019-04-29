@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import torch
+from torch.autograd import Variable
 
 def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize, shuffle=True, sort_len=True, sample_last_batch=True):
   """ Generate minibatches of a specific size 
@@ -121,3 +122,24 @@ class ResultsContainer():
     self.cf_mem_test = cf_mem
     self.test_acc = acc
     self.test_mem_acc = acc_mem
+
+def tensor_to_onehot(y, n_dims=20):
+  y_tensor = y.data if isinstance(y, Variable) else y
+  y_tensor = y_tensor.type(torch.LongTensor).view(-1, 1)
+  n_dims = n_dims if n_dims is not None else int(torch.max(y_tensor)) + 1
+  y_one_hot = torch.zeros(y_tensor.size()[0], n_dims).scatter_(1, y_tensor, 1)
+  y_one_hot = y_one_hot.view(*y.shape, -1)
+  return Variable(y_one_hot) if isinstance(y, Variable) else y_one_hot
+
+if __name__ == "__main__":
+  batch_size = 7
+  seq_len = 11
+  classes = 4
+
+  y = torch.LongTensor(batch_size,seq_len).random_(classes)
+
+  one_hot = tensor_to_onehot(y,classes)
+
+  for i in range(y.shape[0]):
+    for j in range(y.shape[1]):
+      assert(one_hot[i,j,y[i,j]] == 1.0)
