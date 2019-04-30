@@ -58,10 +58,12 @@ def train():
     train_err = 0
     train_batches = 0
     accuracy = 0
+    best_val_acc = 0
+    best_iteration = 0
     model.train()
     crf.train()
+    start_time = time.time()
     for idx, batch in enumerate(data_gen.gen_train()):
-        start_time = time.time()
         seq_lengths = batch['mask'].sum(1).astype(np.int32)
         #sort to be in decending order for pad packed to work
         perm_idx = np.argsort(-seq_lengths)
@@ -101,12 +103,23 @@ def train():
 
 			#evaluate
             val_loss, val_accuracy = evaluate()
+
+            if val_accuracy > best_val_acc:
+                best_val_acc = val_accuracy
+                best_iteration = idx
+
             print('| Valid | loss {:.4f} | acc {:.2f}% ' 
             ' |'.format(val_loss, val_accuracy*100))
             print('-' * 79)
             model.train()
             crf.train()
+            accuracy = 0
+            train_batches = 0
+            train_err = 0
+            start_time = time.time()
             sys.stdout.flush()
+    
+    return best_val_acc, best_iteration
 
 def calculate_accuracy(preds, targets, mask):
     correct = 0
@@ -124,4 +137,8 @@ print("Model: ", model)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 data_gen = data.gen_data(num_iterations=num_iterations, batch_size=batch_size)
 crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
-train()
+best_acc, idx = train()
+print("BEST RESULTS")
+print('| Valid | iteration {:3d} | acc {:.2f}% ' 
+            ' |'.format(idx, best_acc*100))
+print('-' * 79)
