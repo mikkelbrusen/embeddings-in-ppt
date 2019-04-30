@@ -153,7 +153,90 @@ def prepare_tensors(batch):
     inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
   seq_lengths = torch.from_numpy(seq_lengths).to(device)
+
   return inputs, seq_lengths, targets, targets_mem, unk_mem
+
+def run_models(models, inputs, seq_lengths, train=True):
+  with torch.no_grad():
+    all_hidden, last_hidden, raw_all_hidden, dropped_all_hidden  = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+
+  #model_input =  last_hidden[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+
+  #one_hot_inputs = tensor_to_onehot(inputs,n_feat+1).to(device)
+  #one_hot_inputs = one_hot_inputs.permute(1,0,2)
+  
+  averaged_hidden = (dropped_all_hidden[0] + dropped_all_hidden[1]) #(seq_len, bs, 1280)
+  #averaged_hidden = torch.cat((averaged_hidden, one_hot_inputs),dim=2)
+
+  #model_input = all_hidden # (seq_len, bs, emb_size) Use all hidden states
+  model_input = averaged_hidden #(seq_len, bs, emb_size)
+  model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size) Use all hidden states
+
+  optimizer.zero_grad()
+  (output, output_mem), alphas = models[0](model_input, seq_lengths)
+  
+  #When multiple models are given, perform ensambling
+  for i in range(1,len(models)):
+    (out, out_mem), alphas  = models[i](model_input, seq_lengths)
+    output = output + out
+    output_mem = output_mem + out_mem
+
+  #divide by number of models
+  output = torch.div(output,len(models))
+  output_mem = torch.div(output_mem,len(models))
+
+  return output, output_mem, alphas
+
+def calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion, confusion_mem):
+  #Confusion Matrix
+  preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
+  
+  mem_preds = torch.round(output_mem).type(torch.int).cpu().detach().numpy()
+  confusion.batch_add(targets, preds)
+  confusion_mem.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
+  
+  unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
+  targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
+  targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
+
+  # squeeze from [batch_size,1] -> [batch_size] such that it matches weight matrix for BCE
+  output_mem = output_mem.squeeze(1)
+  targets_mem = targets_mem.squeeze(1)
+
+  # calculate loss
+  loss = criterion(input=output, target=targets)
+  loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum")
+  loss_mem = loss_mem / sum(unk_mem)
+  combined_loss = loss + 0.5 * loss_mem
+  
+  return combined_loss
+
+def train(epoch):
+  model.train()
+  embed_model.train()
+
+  train_err = 0
+  train_batches = 0
+  confusion_train = ConfusionMatrix(n_class)
+  confusion_mem_train = ConfusionMatrix(num_classes=2)
+
+  # Generate minibatches and train on each one of them	
+  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
+    inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
+  
+    output, output_mem, _ = run_models([model], inputs, seq_lengths, train=True)
+
+    loss = calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_train, confusion_mem_train)
+    loss.backward()
+
+    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+    optimizer.step()
+
+    train_err += loss.item()
+    train_batches += 1 
+
+  train_loss = train_err / train_batches
+  return train_loss, confusion_train, confusion_mem_train
 
 def evaluate(x, y, mask, membranes, unks, models):
   embed_model.eval()
@@ -170,101 +253,15 @@ def evaluate(x, y, mask, membranes, unks, models):
     for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
       inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
 
-      embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+      output, output_mem, alphas = run_models(models, inputs, seq_lengths, train=False)
 
-      #model_input =  embed[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+      loss = calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_valid, confusion_mem_valid)
 
-      #one_hot_inputs = tensor_to_onehot(inputs,n_feat+1).to(device)
-      #one_hot_inputs = one_hot_inputs.permute(1,0,2)
-      
-      #averaged_hidden = (raw_embeds[0] + raw_embeds[1]) #(seq_len, bs, emb_size)
-      #averaged_hidden = torch.cat((averaged_hidden, one_hot_inputs),dim=2)
-
-      model_input = embed_output # (seq_len, bs, emb_size) Use all hidden states
-      #model_input = averaged_hidden #(seq_len, bs, emb_size)
-      model_input = model_input.permute(1,0,2) # (bs,seq_len,emb_size) Use all hidden states
-
-      (outputs, outputs_mem), alphas = models[0](model_input, seq_lengths)
-      
-      #When multiple models are given, perform ensambling
-      for i in range(1,len(models)):
-        (output, output_mem), alphas  = models[i](model_input, seq_lengths)
-        outputs = outputs + output
-        outputs_mem = outputs_mem + output_mem
-
-      #divide by number of models
-      outputs = torch.div(outputs,len(models))
-      outputs_mem = torch.div(outputs_mem,len(models))
-
-      #Confusion Matrix
-      preds = np.argmax(outputs.cpu().detach().numpy(), axis=-1)
-      mem_preds = torch.round(outputs_mem).type(torch.int).cpu().detach().numpy()
-      confusion_valid.batch_add(targets, preds)
-      confusion_mem_valid.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
-      
-      targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
-      val_err += criterion(input=outputs, target=targets).item()
+      val_err += loss.item()
       val_batches += 1
 
   val_loss = val_err / val_batches
-  
   return val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths)
-
-def train():
-  model.train()
-  embed_model.eval()
-
-  # Full pass training set
-  train_err = 0
-  train_batches = 0
-  confusion_train = ConfusionMatrix(n_class)
-  confusion_mem_train = ConfusionMatrix(num_classes=2)
-
-  # Generate minibatches and train on each one of them	
-  for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
-    inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
-
-    with torch.no_grad():
-      embed_output, embed = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
-
-    #model_input =  embed[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
-
-    model_input = embed_output # (seq_len, bs, emb_size) Use all hidden states
-    model_input = model_input.permute(1,0,2) # (bs,seq_len,emb_size) Use all hidden states
-    
-    optimizer.zero_grad()
-    (output, output_mem), _ = model(model_input, seq_lengths)
-
-    #Confusion Matrix
-    preds = np.argmax(output.cpu().detach().numpy(), axis=-1)
-    
-    mem_preds = torch.round(output_mem).type(torch.int).cpu().detach().numpy()
-    confusion_train.batch_add(targets, preds)
-    confusion_mem_train.batch_add(targets_mem[np.where(unk_mem == 1)], mem_preds[np.where(unk_mem == 1)])
-    
-    unk_mem = Variable(torch.from_numpy(unk_mem)).type(torch.float).to(device)
-    targets = Variable(torch.from_numpy(targets)).type(torch.long).to(device)
-    targets_mem = Variable(torch.from_numpy(targets_mem)).type(torch.float).to(device)
-
-    # squeeze from [batch_size,1] -> [batch_size] such that it matches weight matrix for BCE
-    output_mem = output_mem.squeeze(1)
-    targets_mem = targets_mem.squeeze(1)
-
-    # calculate loss
-    loss = criterion(input=output, target=targets)
-    loss_mem = F.binary_cross_entropy(input=output_mem, target=targets_mem, weight=unk_mem, reduction="sum")
-    loss_mem = loss_mem / sum(unk_mem)
-    combined_loss = loss + 0.5 * loss_mem
-    combined_loss.backward()
-
-    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-    optimizer.step()
-
-    train_err += loss.item()
-    train_batches += 1 
-
-  train_loss = train_err / train_batches
-  return train_loss, confusion_train, confusion_mem_train
 
 # Training
 results = ResultsContainer()
@@ -272,12 +269,12 @@ best_model = None
 best_val_accs = []
 best_val_models = []
 
+# Initialize the AWD language model, and load in saved parameters
 embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True).to(device)
 with open("awd_lstm/test_v2_statedict.pt", 'rb') as f:
 		state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
 embed_model.load_state_dict(state_dict)
 
-#load_params(embed_model)
 hidden = embed_model.init_hidden(batch_size)
 
 for i in range(1,5):
@@ -285,9 +282,12 @@ for i in range(1,5):
   best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
+
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
     cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
   #model = StraightToLinear(batch_size=batch_size, n_hid=320, n_class=n_class, drop_per=0.5).to(device)
+  #model = SeqVec(batch_size=batch_size, inp_size=1280, n_hid=32, n_class=10, drop_per=0.25).to(device)
+
   print("Model: ", model)
   optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
 	
@@ -315,7 +315,7 @@ for i in range(1,5):
   for epoch in range(num_epochs):
     start_time = time.time()
 
-    train_loss, confusion_train, confusion_mem_train = train()
+    train_loss, confusion_train, confusion_mem_train = train(epoch)
     val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths) = evaluate(X_val, y_val, mask_val, mem_val, unk_val, [model])
     
     results.append_epoch(train_loss, val_loss, confusion_train.accuracy(), confusion_valid.accuracy()) 
@@ -357,7 +357,7 @@ print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
 results.set_final(
   alph = alphas.cpu().detach().numpy(), 
   seq_len = seq_lengths.cpu().detach().numpy(), 
-  targets = targets.cpu().detach().numpy(), 
+  targets = targets, 
   cf = confusion_test.ret_mat(),
   cf_mem = confusion_mem_test.ret_mat(), 
   acc = confusion_test.accuracy(), 

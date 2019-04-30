@@ -20,7 +20,7 @@ class ABLSTM(nn.Module):
     
     #self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
     #self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
-    self.lstm = nn.LSTM(320, n_hid, bidirectional=True, batch_first=True)
+    self.lstm = nn.LSTM(1280, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
     if (is_multi_step):
