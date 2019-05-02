@@ -33,6 +33,7 @@ class WeightDrop(torch.nn.Module):
         for name_w in self.weights:
             raw_w = getattr(self.module, name_w + '_raw')
             w = None
+            
             if self.variational:
                 mask = torch.autograd.Variable(torch.ones(raw_w.size(0), 1))
                 if raw_w.is_cuda: mask = mask.cuda()
@@ -40,6 +41,10 @@ class WeightDrop(torch.nn.Module):
                 w = mask.expand_as(raw_w) * raw_w
             else:
                 w = torch.nn.functional.dropout(raw_w, p=self.dropout, training=self.training)
+                #Hack to wrap the returned weight in a parameter when performing dropout
+                if(self.training):
+                    w = torch.nn.Parameter(w)
+
             setattr(self.module, name_w, w)
 
     def forward(self, *args):
@@ -51,7 +56,7 @@ if __name__ == '__main__':
     from weight_drop import WeightDrop
 
     # Input is (seq, batch, input)
-    x = torch.autograd.Variable(torch.randn(2, 1, 10)).cuda()
+    x = torch.autograd.Variable(torch.randn(2, 1, 10))
     h0 = None
 
     ###
@@ -64,7 +69,6 @@ if __name__ == '__main__':
     print('Testing WeightDrop with Linear')
 
     lin = WeightDrop(torch.nn.Linear(10, 10), ['weight'], dropout=0.9)
-    lin.cuda()
     run1 = [x.sum() for x in lin(x).data]
     run2 = [x.sum() for x in lin(x).data]
 
@@ -82,7 +86,6 @@ if __name__ == '__main__':
     print('Testing WeightDrop with LSTM')
 
     wdrnn = WeightDrop(torch.nn.LSTM(10, 10), ['weight_hh_l0'], dropout=0.9)
-    wdrnn.cuda()
 
     run1 = [x.sum() for x in wdrnn(x, h0)[0].data]
     run2 = [x.sum() for x in wdrnn(x, h0)[0].data]
