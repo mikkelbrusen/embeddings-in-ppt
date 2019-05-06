@@ -24,7 +24,7 @@ parser.add_argument('-t', '--testset',  help="npz file with test profiles data t
 parser.add_argument('-raw','--is_raw', help="Boolean telleing whether the sequences are raw (True) or profiles (False), default True", default=True)
 parser.add_argument('-fe', '--n_features',  help="Embedding size if is_raw=True else number of features, default = 20", default=20)
 parser.add_argument('-bs', '--batch_size',  help="Minibatch size, default = 128", default=128)
-parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=300)
+parser.add_argument('-e', '--epochs',  help="Number of training epochs, default = 300", default=250)
 parser.add_argument('-n', '--n_filters',  help="Number of filters, default = 20", default=20)
 parser.add_argument('-lr', '--learning_rate',  help="Learning rate, default = 0.0005", default=0.0005)
 parser.add_argument('-id', '--in_dropout',  help="Input dropout, default = 0.2", default=0.2)
@@ -156,21 +156,58 @@ def prepare_tensors(batch):
 
   return inputs, seq_lengths, targets, targets_mem, unk_mem
 
-def run_models(models, inputs, seq_lengths, train=True):
-  with torch.no_grad():
-    all_hidden, last_hidden, raw_all_hidden, dropped_all_hidden  = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+def run_models(models, inputs, seq_lengths, epoch=0, train=True, variant="hidden-summed"):
+  r"""
+   Arguments:
+    models -- list of models to accomodate ensambling.
+    inputs -- tensor of the encoded protein data. Shape: (bs, seq_len, emb_size)
+    seq_lengths -- tensor of the sequence lengths. Shape: (bs)
+    epoch -- integer, current epoch, used to turn on late training of models. (default=0)
+    train -- boolean, used to differentiate between training and evaluation. (default=True)
+    variant -- str, the type of output to use from the awd as input to our model. (default=hidden-summed)
 
-  #model_input =  last_hidden[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+      This can be one of the following:
+      - embed: The embedding layer. (seq_len, bs, emb_size)
+      - last-hid: The last hidden state of the last hidden layer. Shape (bs, emb_size)
+      - last-hiddens: The hiddens states of the last hidden layer. Shape (seq_len, bs, emb_size)
+      - hidden-summed: The two first lstm layers hidden states, summed. Shape (seq_len, bs, 1280)
+      - hidden-avg: The two first lstm layers hidden states, summed and averaged. (bs, 1280)
+      - hidden-cat: The two first lstm layers hidden states, summed, concatenated with onehot inputs. (seq_len, bs, 1301)
+  """
 
-  #one_hot_inputs = tensor_to_onehot(inputs,n_feat+1).to(device)
-  #one_hot_inputs = one_hot_inputs.permute(1,0,2)
+  if train and epoch >= 400:
+    all_hidden, last_hidden, raw_all_hidden, dropped_all_hidden, emb  = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
+  else:
+    with torch.no_grad():
+      all_hidden, last_hidden, raw_all_hidden, dropped_all_hidden, emb  = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
   
-  averaged_hidden = (dropped_all_hidden[0] + dropped_all_hidden[1]) #(seq_len, bs, 1280)
-  #averaged_hidden = torch.cat((averaged_hidden, one_hot_inputs),dim=2)
+  # Choose a variant
+  if variant == "embed":
+    model_input = emb
+    model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size) 
 
-  #model_input = all_hidden # (seq_len, bs, emb_size) Use all hidden states
-  model_input = averaged_hidden #(seq_len, bs, emb_size)
-  model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size) Use all hidden states
+  elif variant == "last-hid":
+    model_input =  last_hidden[-1][0].squeeze(0) # (bs, emb_size) Use only last hidden state
+
+  elif variant == "last-hiddens":
+    model_input = all_hidden # (seq_len, bs, emb_size)
+    model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size) 
+
+  elif variant == "hidden-summed":
+    model_input = (dropped_all_hidden[0] + dropped_all_hidden[1]) #(seq_len, bs, 1280)
+    model_input = model_input.permute(1,0,2) # (bs, seq_len, 1280) 
+
+  elif variant == "hidden-avg":
+    raise Warning("Not Yet Implemented")
+
+  elif variant == "hidden-cat":
+    model_input = (dropped_all_hidden[0] + dropped_all_hidden[1]) #(seq_len, bs, 1280)
+    model_input = model_input.permute(1,0,2) # (bs, seq_len, 1280) 
+    one_hot_inputs = tensor_to_onehot(inputs,n_feat+1).to(device) # (bs, seq_len, 21)
+    model_input = torch.cat((model_input, one_hot_inputs),dim=2) #(seq_len, bs, 1301)
+
+  else:
+    raise Warning("Invalid variant: {0}".format(variant))
 
   optimizer.zero_grad()
   (output, output_mem), alphas = models[0](model_input, seq_lengths)
@@ -224,7 +261,7 @@ def train(epoch):
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
     inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
   
-    output, output_mem, _ = run_models([model], inputs, seq_lengths, train=True)
+    output, output_mem, _ = run_models([model], inputs, seq_lengths, epoch=epoch, train=True)
 
     loss = calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_train, confusion_mem_train)
     loss.backward()
@@ -290,8 +327,8 @@ for i in range(1,5):
 
   print("AWD: ", embed_model)
   print("Model: ", model)
-  optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate)
-	
+  optimizer = torch.optim.Adam(list(embed_model.parameters()) + list(model.parameters()), lr=args.learning_rate)
+
   # Train and validation sets
   train_index = np.where(partition != i)
   val_index = np.where(partition == i)
