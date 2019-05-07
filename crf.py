@@ -91,14 +91,14 @@ def log_marginal(nu_alp, nu_bet):
 def log_likelihood(y, f, g, nu_alp, nu_bet):
     num_class = f.size(2)
     y_oh = onehot(y, num_class).float().permute(1,0,2)
-    f_term = (f * y_oh).sum(0).sum(1).squeeze()
+    f_term = (f * y_oh).sum(0).sum(1)
 
-    y_i = y_oh.unsqueeze(3)
-    y_plus = y_oh.unsqueeze(2)
+    y_i = y_oh[:-1].unsqueeze(3)
+    y_plus = y_oh[1:].unsqueeze(2)
 
     g, y_i, y_plus = broadcast(g, y_i, y_plus)
 
-    g_term = (g * y_i * y_plus).sum(0).sum(1).sum(1).squeeze()
+    g_term = (g * y_i * y_plus).sum(0).sum(1).sum(1)
     z_term = logZ(nu_alp, nu_bet)
     log_like = f_term + g_term - z_term
     return log_like

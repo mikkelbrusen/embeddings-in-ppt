@@ -40,11 +40,10 @@ def evaluate():
             targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
 
             f, g, nu_alp, nu_bet = model(inp=inp, seq_lengths=seq_lens, mask=mask)
-
+            
             # calculate loss
             sum_mask = torch.sum(mask.type(torch.float))
-            mean_mask = torch.mean(sum_mask)
-            loss = -cRf.log_likelihood(targets, f, g, nu_alp, nu_bet).sum() / mean_mask
+            loss = -cRf.log_likelihood(targets, f, g[:-1], nu_alp, nu_bet).sum() / sum_mask
 
             # calculate accuaracy
             #preds_list = crf.decode(emissions=output, mask=mask)
@@ -87,8 +86,7 @@ def train():
         
         # calculate loss
         sum_mask = torch.sum(mask.type(torch.float))
-        mean_mask = torch.mean(sum_mask)
-        loss = -cRf.log_likelihood(targets, f, g, nu_alp, nu_bet).sum() / mean_mask
+        loss = -cRf.log_likelihood(targets, f, g[:-1], nu_alp, nu_bet).sum() / sum_mask
         loss.backward()
 
         # calculate accuaracy
