@@ -131,6 +131,18 @@ def tensor_to_onehot(y, n_dims=20):
   y_one_hot = y_one_hot.view(*y.shape, -1)
   return Variable(y_one_hot) if isinstance(y, Variable) else y_one_hot
 
+def do_layer_norm(tensor, mask):
+    # Prepare variables
+    broadcast_mask = mask.unsqueeze(-1)
+    input_dim = tensor.size(-1)
+    num_elements_not_masked = torch.sum(mask) * input_dim
+
+    # Do normalization
+    tensor_masked = tensor * broadcast_mask
+    mean = torch.sum(tensor_masked) / num_elements_not_masked
+    variance = torch.sum(((tensor_masked - mean) * broadcast_mask)**2) / num_elements_not_masked
+    return (tensor - mean) / torch.sqrt(variance + 1E-12)
+
 if __name__ == "__main__":
   batch_size = 7
   seq_len = 11

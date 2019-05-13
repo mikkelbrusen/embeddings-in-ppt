@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 sys.path.insert(0,'..')
 from models.attention import Attention, MultiStepAttention
-from utils import length_to_mask
+from utils import length_to_mask, do_layer_norm
 
 
 class ABLSTM(nn.Module):
@@ -17,10 +17,12 @@ class ABLSTM(nn.Module):
 
     self.in_drop = nn.Dropout2d(drop_per)
     self.drop = nn.Dropout(drop_hid)
-    
-    #self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
-    #self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
-    self.lstm = nn.LSTM(1280, n_hid, bidirectional=True, batch_first=True)
+
+    self.embed = nn.Embedding(num_embeddings=21, embedding_dim=n_feat, padding_idx=20)
+
+    self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
+    self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
+    self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
     if (is_multi_step):
@@ -60,20 +62,30 @@ class ABLSTM(nn.Module):
             if 'bias' in name:
               param.data.zero_()
     
-  def forward(self, inp, seq_lengths):
+  def forward(self, inp, seq_lengths, mask, awd_hid):
     #x = inp
-    x = self.in_drop(inp)  # (batch_size, seq_len, emb_size)
+    inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 
-    #x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
-    #conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
-    #x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
+    # Concat 320 hidden layer to embedding
+    #normed_awd_hid = do_layer_norm(awd_hid, mask) # (batch_size, seq_len, 320)
+    #inp = torch.cat((inp, normed_awd_hid), dim=2) # (batch_size, seq_len, 320+emb_size)
 
-    #x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
-    x = self.drop(x)
+    inp = self.drop(inp) # feature dropout
+    x = self.in_drop(inp)  # (batch_size, seq_len, emb_size) - 2d dropout
+
+    x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
+    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
+    x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
+
+    x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
+    x = self.drop(x) #( batch_size, seq_len, lstm_input_size)
     
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, (h, c) = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
+
+    # Concat 320 hidden layer to BiLSTM
+    #output = torch.cat((output, awd_hid),dim=2) # (batch_size, seq_len, hidden_size*2+320)
   
     attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
     output = self.drop(attn_output)

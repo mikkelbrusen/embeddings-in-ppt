@@ -140,6 +140,7 @@ def prepare_tensors(batch):
 
   #sort to be in decending order for pad packed to work
   perm_idx = np.argsort(-seq_lengths)
+  in_masks = in_masks[perm_idx]
   seq_lengths = seq_lengths[perm_idx]
   inputs = inputs[perm_idx]
   targets = targets[perm_idx]
@@ -152,21 +153,24 @@ def prepare_tensors(batch):
   else:
     inputs = Variable(torch.from_numpy(inputs)).to(device) # (batch_size, seq_len, feature_size)
 
+  in_masks = torch.from_numpy(in_masks).to(device)
   seq_lengths = torch.from_numpy(seq_lengths).to(device)
 
-  return inputs, seq_lengths, targets, targets_mem, unk_mem
+  return inputs, seq_lengths, in_masks, targets, targets_mem, unk_mem
 
-def run_models(models, inputs, seq_lengths, epoch=0, train=True, variant="hidden-summed"):
+def run_models(models, inputs, seq_lengths, in_masks, epoch=0, train=True, variant="raw"):
   r"""
    Arguments:
     models -- list of models to accomodate ensambling.
-    inputs -- tensor of the encoded protein data. Shape: (bs, seq_len, emb_size)
+    inputs -- tensor of the encoded protein data. Shape: (bs, seq_len)
     seq_lengths -- tensor of the sequence lengths. Shape: (bs)
+    in_masks -- mask of the input. Shape: (bs, seq_len)
     epoch -- integer, current epoch, used to turn on late training of models. (default=0)
     train -- boolean, used to differentiate between training and evaluation. (default=True)
     variant -- str, the type of output to use from the awd as input to our model. (default=hidden-summed)
 
       This can be one of the following:
+      - raw: The raw inputs will be used, and awd wont be forwarded through
       - embed: The embedding layer. (seq_len, bs, emb_size)
       - last-hid: The last hidden state of the last hidden layer. Shape (bs, emb_size)
       - last-hiddens: The hiddens states of the last hidden layer. Shape (seq_len, bs, emb_size)
@@ -182,7 +186,10 @@ def run_models(models, inputs, seq_lengths, epoch=0, train=True, variant="hidden
       all_hidden, last_hidden, raw_all_hidden, dropped_all_hidden, emb  = embed_model(input=inputs, hidden=hidden, seq_lengths=seq_lengths)
   
   # Choose a variant
-  if variant == "embed":
+  if variant == "raw":
+    model_input = inputs # (bs, seq_len)
+
+  elif variant == "embed":
     model_input = emb
     model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size) 
 
@@ -210,11 +217,11 @@ def run_models(models, inputs, seq_lengths, epoch=0, train=True, variant="hidden
     raise Warning("Invalid variant: {0}".format(variant))
 
   optimizer.zero_grad()
-  (output, output_mem), alphas = models[0](model_input, seq_lengths)
+  (output, output_mem), alphas = models[0](model_input, seq_lengths, in_masks, all_hidden.permute(1,0,2))
   
   #When multiple models are given, perform ensambling
   for i in range(1,len(models)):
-    (out, out_mem), alphas  = models[i](model_input, seq_lengths)
+    (out, out_mem), alphas  = models[i](model_input, seq_lengths, in_masks, all_hidden.permute(1,0,2))
     output = output + out
     output_mem = output_mem + out_mem
 
@@ -259,9 +266,9 @@ def train(epoch):
 
   # Generate minibatches and train on each one of them	
   for batch in iterate_minibatches(X_tr, y_tr, mask_tr, mem_tr, unk_tr, batch_size):
-    inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
+    inputs, seq_lengths, in_masks, targets, targets_mem, unk_mem = prepare_tensors(batch)
   
-    output, output_mem, _ = run_models([model], inputs, seq_lengths, epoch=epoch, train=True)
+    output, output_mem, _ = run_models([model], inputs, seq_lengths, in_masks, epoch=epoch, train=True)
 
     loss = calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_train, confusion_mem_train)
     loss.backward()
@@ -288,9 +295,9 @@ def evaluate(x, y, mask, membranes, unks, models):
   with torch.no_grad():
     # Generate minibatches and train on each one of them	
     for batch in iterate_minibatches(x, y, mask, membranes, unks, batch_size, sort_len=False, shuffle=False, sample_last_batch=False):
-      inputs, seq_lengths, targets, targets_mem, unk_mem = prepare_tensors(batch)
+      inputs, seq_lengths, in_masks, targets, targets_mem, unk_mem = prepare_tensors(batch)
 
-      output, output_mem, alphas = run_models(models, inputs, seq_lengths, train=False)
+      output, output_mem, alphas = run_models(models, inputs, seq_lengths, in_masks, train=False)
 
       loss = calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_valid, confusion_mem_valid)
 
@@ -307,18 +314,19 @@ best_val_accs = []
 best_val_models = []
 
 # Initialize the AWD language model, and load in saved parameters
-embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True).to(device)
-with open("awd_lstm/test_v2_statedict.pt", 'rb') as f:
-		state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-embed_model.load_state_dict(state_dict)
-
-hidden = embed_model.init_hidden(batch_size)
 
 for i in range(1,5):
   best_val_acc = 0
   best_val_model = None
   # Network compilation
   print("Compilation model {}".format(i))
+
+  embed_model = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True).to(device)
+  with open("awd_lstm/test_v2_statedict.pt", 'rb') as f:
+      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+  embed_model.load_state_dict(state_dict)
+
+  hidden = embed_model.init_hidden(batch_size)
 
   model = ABLSTM(batch_size, n_hid, n_feat, n_class, drop_per, drop_hid, n_filt, conv_kernel_sizes=conv_sizes, att_size=att_size, 
     cell_hid_size=cell_hid_size, num_steps=num_steps, directions=direcitons, is_multi_step=is_multi_step).to(device)
