@@ -391,24 +391,24 @@ for i, acc in enumerate(best_val_accs):
 
 print("Average validation accuracy {:.2f}% \n".format((sum(best_val_accs)/len(best_val_accs))*100))
 
-test_loss, confusion_test, confusion_mem_test, (alphas, targets, seq_lengths) = evaluate(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
-print("ENSAMBLE TEST RESULTS")
-print(confusion_test)
-print(confusion_mem_test)
-print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
-print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
-print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
-print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
+# test_loss, confusion_test, confusion_mem_test, (alphas, targets, seq_lengths) = evaluate(X_test, y_test, mask_test, mem_test, unk_test, best_val_models)
+# print("ENSAMBLE TEST RESULTS")
+# print(confusion_test)
+# print(confusion_mem_test)
+# print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
+# print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
+# print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
+# print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
 
-results.set_final(
-  alph = alphas.cpu().detach().numpy(), 
-  seq_len = seq_lengths.cpu().detach().numpy(), 
-  targets = targets, 
-  cf = confusion_test.ret_mat(),
-  cf_mem = confusion_mem_test.ret_mat(), 
-  acc = confusion_test.accuracy(), 
-  acc_mem = confusion_mem_test.accuracy())
+# results.set_final(
+#   alph = alphas.cpu().detach().numpy(), 
+#   seq_len = seq_lengths.cpu().detach().numpy(), 
+#   targets = targets, 
+#   cf = confusion_test.ret_mat(),
+#   cf_mem = confusion_mem_test.ret_mat(), 
+#   acc = confusion_test.accuracy(), 
+#   acc_mem = confusion_mem_test.accuracy())
 
-model = best_model
-model_save(args.save)
-results_save(args.save_results)
+# model = best_model
+# model_save(args.save)
+# results_save(args.save_results)
