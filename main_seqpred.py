@@ -15,15 +15,17 @@ num_iterations = 5001
 lr = 0.001
 batch_size = 64
 number_outputs = 8
+crf_on = True
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate():
+def evaluate(crf_on=True):
     eval_err = 0
     eval_batches = 0
     accuracy = 0
     model.eval()
-    crf.eval()
+    if crf_on:
+        crf.eval()
     with torch.no_grad():
         for idx, batch in enumerate(data_gen.gen_valid()):
             seq_lengths = batch['mask'].sum(1).astype(np.int32)
@@ -39,14 +41,28 @@ def evaluate():
             targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
 
             output = model(inp=inp, seq_lengths=seq_lens)
-            
-            # calculate loss
-            loss = -crf(output, targets, mask)
+        
+            if crf_on:
+                # calculate loss
+                loss = -crf(output, targets, mask)
 
-            # calculate accuaracy
-            preds_list = crf.decode(emissions=output, mask=mask)
-            accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
+                # calculate accuaracy
+                preds_list = crf.decode(emissions=output, mask=mask)
+                accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask)
+            else:
+                mask = mask.type(torch.float)
+                # calculate loss
+                loss = 0
+                loss_preds = output.permute(1,0,2)
+                loss_mask = mask.permute(1,0)
+                loss_targets = targets.permute(1,0)
+                for i in range(loss_preds.size(0)):
+                    loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])/torch.sum(loss_mask[i])
 
+                # calculate accuaracy    
+                accuracy += calculate_accuracy(preds=output, targets=targets, mask=mask)
+
+        
             eval_err += loss.item()
             eval_batches += 1
 
@@ -55,14 +71,15 @@ def evaluate():
     return eval_loss, total_accuracy
 
 
-def train():
+def train(crf_on=True):
     train_err = 0
     train_batches = 0
     accuracy = 0
     best_val_acc = 0
     best_iteration = 0
     model.train()
-    crf.train()
+    if crf_on:
+        crf.train()
     start_time = time.time()
     for idx, batch in enumerate(data_gen.gen_train()):
         seq_lengths = batch['mask'].sum(1).astype(np.int32)
@@ -80,15 +97,32 @@ def train():
         optimizer.zero_grad()
         output = model(inp=inp, seq_lengths=seq_lens)
         
-        # calculate loss
-        loss = -crf(output, targets, mask)
-        loss.backward()
+        if crf_on:
+            # calculate loss
+            loss = -crf(output, targets, mask)
+            loss.backward()
 
-        # calculate accuaracy
-        preds_list = crf.decode(emissions=output, mask=mask)
-        accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
+            # calculate accuaracy
+            preds_list = crf.decode(emissions=output, mask=mask)
+            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask)
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
+            torch.nn.utils.clip_grad_norm_(list(model.parameters()) + list(crf.parameters()), clip_norm)
+        else:
+            mask = mask.type(torch.float)
+            # calculate loss
+            loss = 0
+            loss_preds = output.permute(1,0,2)
+            loss_mask = mask.permute(1,0)
+            loss_targets = targets.permute(1,0)
+            for i in range(loss_preds.size(0)):
+                loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])/torch.sum(loss_mask[i])
+            loss.backward()
+
+            # calculate accuaracy
+            accuracy += calculate_accuracy(preds=output, targets=targets, mask=mask)
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
+        
         optimizer.step()
 
         train_err += loss.item()
@@ -103,7 +137,7 @@ def train():
             ' |'.format(train_loss, total_accuracy*100))
 
 			#evaluate
-            val_loss, val_accuracy = evaluate()
+            val_loss, val_accuracy = evaluate(crf_on=crf_on)
 
             if val_accuracy > best_val_acc:
                 best_val_acc = val_accuracy
@@ -113,7 +147,8 @@ def train():
             ' |'.format(val_loss, val_accuracy*100))
             print('-' * 79)
             model.train()
-            crf.train()
+            if crf_on:
+                crf.train()
             accuracy = 0
             train_batches = 0
             train_err = 0
@@ -122,22 +157,32 @@ def train():
     
     return best_val_acc, best_iteration
 
-def calculate_accuracy(preds, targets, mask):
+def calculate_accuracy_crf(preds, targets, mask):
     correct = 0
     for i in range(len(preds)):
         pred = torch.tensor(preds[i]).type(torch.float).to(device)
         target = targets[i][mask[i]].type(torch.float).to(device)
         correct += torch.sum(pred.eq(target))
     return correct.type(torch.float) / torch.sum(mask.type(torch.float))
-    
+
+def calculate_accuracy(preds, targets, mask):
+    preds = preds.argmax(2).type(torch.float)
+    correct = preds.type(torch.float).eq(targets.type(torch.float)).type(torch.float) * mask.type(torch.float)
+    return torch.sum(correct) / torch.sum(mask)
 
 # Network compilation
 model = SeqPred().to(device)
 print("Model: ", model)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+if crf_on:
+    crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
+    print("CRF: ", crf)
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(crf.parameters()), lr=lr)
+
 data_gen = data.gen_data(num_iterations=num_iterations, batch_size=batch_size)
-crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
-best_acc, idx = train()
+
+best_acc, idx = train(crf_on=crf_on)
+
 print("BEST RESULTS")
 print('| Valid | iteration {:3d} | acc {:.2f}% ' 
             ' |'.format(idx, best_acc*100))
