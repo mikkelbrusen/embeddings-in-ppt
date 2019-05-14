@@ -15,6 +15,7 @@ class AWD_Embedding(nn.Module):
         self.idrop = nn.Dropout(dropouti)
         self.hdrop = nn.Dropout(dropouth)
         self.drop = nn.Dropout(dropout)
+        # maybe add padding_idx=20
         self.encoder = nn.Embedding(ntoken, ninp)
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0) for l in range(nlayers)]
 
