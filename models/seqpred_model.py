@@ -56,4 +56,3 @@ class SeqPred(nn.Module):
     out = self.label(output)
 
     return out
-
