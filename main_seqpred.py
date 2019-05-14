@@ -19,7 +19,10 @@ crf_on = True
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate(crf_on=True):
+def evaluate(crf_on=True, is_test=False):
+    data_generator = data_gen.gen_valid()
+    if is_test:
+        data_generator = data_gen.gen_test()
     eval_err = 0
     eval_batches = 0
     accuracy = 0
@@ -27,7 +30,7 @@ def evaluate(crf_on=True):
     if crf_on:
         crf.eval()
     with torch.no_grad():
-        for idx, batch in enumerate(data_gen.gen_valid()):
+        for idx, batch in enumerate(data_generator):
             seq_lengths = batch['mask'].sum(1).astype(np.int32)
             #sort to be in decending order for pad packed to work
             perm_idx = np.argsort(-seq_lengths)
@@ -106,7 +109,7 @@ def train(crf_on=True):
             preds_list = crf.decode(emissions=output, mask=mask)
             accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask)
 
-            torch.nn.utils.clip_grad_norm_(list(model.parameters()) + list(crf.parameters()), clip_norm)
+            torch.nn.utils.clip_grad_norm_(parameters=list(model.parameters()) + list(crf.parameters()), max_norm=clip_norm)
         else:
             mask = mask.type(torch.float)
             # calculate loss
@@ -121,7 +124,7 @@ def train(crf_on=True):
             # calculate accuaracy
             accuracy += calculate_accuracy(preds=output, targets=targets, mask=mask)
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
+            torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
         
         optimizer.step()
 
@@ -141,6 +144,9 @@ def train(crf_on=True):
 
             if val_accuracy > best_val_acc:
                 best_val_acc = val_accuracy
+                if crf_on:
+                    best_crf = crf
+                best_model = model
                 best_iteration = idx
 
             print('| Valid | loss {:.4f} | acc {:.2f}% ' 
@@ -172,10 +178,12 @@ def calculate_accuracy(preds, targets, mask):
 
 # Network compilation
 model = SeqPred().to(device)
+best_model = model
 print("Model: ", model)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 if crf_on:
     crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
+    best_crf = crf
     print("CRF: ", crf)
     optimizer = torch.optim.Adam(list(model.parameters()) + list(crf.parameters()), lr=lr)
 
@@ -186,4 +194,14 @@ best_acc, idx = train(crf_on=crf_on)
 print("BEST RESULTS")
 print('| Valid | iteration {:3d} | acc {:.2f}% ' 
             ' |'.format(idx, best_acc*100))
+print('-' * 79)
+
+#test
+model = best_model
+if crf_on:
+    crf = best_crf
+test_loss, test_accuracy = evaluate(crf_on=crf_on, is_test=True)
+
+print('| Test | acc {:.2f}% ' 
+            ' |'.format(test_accuracy*100))
 print('-' * 79)

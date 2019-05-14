@@ -46,6 +46,7 @@ class SeqPred(nn.Module):
     x = self.bn1(x).permute(0,2,1)
     x = self.relu(x)
     x = torch.cat((inp,x), dim=2)
+    
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, _ = self.gru(pack)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)

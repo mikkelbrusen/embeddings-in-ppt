@@ -247,20 +247,20 @@ class gen_data():
     def gen_test(self):
         batch = self._batch_init()
         i = 0
-        for idx in self._idcs_test:
+        for idx in self._idcs_test[:512]:
             batch['X'][i] = self._data_dict['X_test'][idx]
             batch['t'][i] = self._data_dict['t_test'][idx]
             batch['mask'][i] = self._data_dict['mask_test'][idx]
             batch['length'][i] = self._data_dict['length_test'][idx]
             i += 1
             if i >= self._batch_size:
-                yield self._chop_batch(batch, i), i
+                yield self._chop_batch(batch, i)
                 batch = self._batch_init()
                 i = 0
         if i != 0:
             print(i)
             print(self._chop_batch(batch, i)['X'].shape)
-            yield self._chop_batch(batch, i), i
+            yield self._chop_batch(batch, i)
 
     def gen_casp(self):
         batch = self._batch_init()
