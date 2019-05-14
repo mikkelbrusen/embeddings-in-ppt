@@ -8,7 +8,6 @@ from torchcrf import CRF
 sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred
-import crf as cRf
 
 clip_norm = 1
 valid_every = 50
@@ -39,17 +38,14 @@ def evaluate():
             mask = Variable(torch.from_numpy(mask).type(torch.ByteTensor)).to(device)
             targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
 
-            f, g, nu_alp, nu_bet = model(inp=inp, seq_lengths=seq_lens, mask=mask)
+            output = model(inp=inp, seq_lengths=seq_lens)
             
             # calculate loss
-            sum_mask = torch.sum(mask.type(torch.float))
-            loss = -cRf.log_likelihood(targets, f, g[:-1], nu_alp, nu_bet).sum() / sum_mask
+            loss = -crf(output, targets, mask)
 
             # calculate accuaracy
-            #preds_list = crf.decode(emissions=output, mask=mask)
-            prediction = torch.argmax(cRf.log_marginal(nu_alp, nu_bet), dim=2)
-            #accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
-            accuracy += calculate_accuracy(preds=prediction.permute(1,0), targets=targets, mask=mask)
+            preds_list = crf.decode(emissions=output, mask=mask)
+            accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
 
             eval_err += loss.item()
             eval_batches += 1
@@ -82,18 +78,15 @@ def train():
         targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
 
         optimizer.zero_grad()
-        f, g, nu_alp, nu_bet = model(inp=inp, seq_lengths=seq_lens, mask=mask)
+        output = model(inp=inp, seq_lengths=seq_lens)
         
         # calculate loss
-        sum_mask = torch.sum(mask.type(torch.float))
-        loss = -cRf.log_likelihood(targets, f, g[:-1], nu_alp, nu_bet).sum() / sum_mask
+        loss = -crf(output, targets, mask)
         loss.backward()
 
         # calculate accuaracy
-        #preds_list = crf.decode(emissions=output, mask=mask)
-        prediction = torch.argmax(cRf.log_marginal(nu_alp, nu_bet), dim=2)
-        #accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
-        accuracy += calculate_accuracy(preds=prediction.permute(1,0), targets=targets, mask=mask)
+        preds_list = crf.decode(emissions=output, mask=mask)
+        accuracy += calculate_accuracy(preds=preds_list, targets=targets, mask=mask)
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
         optimizer.step()
