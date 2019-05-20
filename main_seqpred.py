@@ -132,7 +132,7 @@ def train(crf_on):
         train_err += loss.item()
         train_batches += 1
     train_accuracy = accuracy / train_batches
-    train_loss = train_err
+    train_loss = train_err / train_batches
     return train_loss, train_accuracy
 
 def calculate_accuracy_crf(preds, targets, mask):
@@ -169,8 +169,8 @@ data_gen = data.gen_data(num_iterations=num_iterations)
 
 
 best_val_acc = 0
-start_time = time.time()
 for epoch in range(num_epochs):
+    start_time = time.time()
     train_loss, train_accuracy = train(crf_on=crf_on)
     val_loss, val_accuracy = evaluate(crf_on=crf_on, is_test=False)
     if val_accuracy > best_val_acc:

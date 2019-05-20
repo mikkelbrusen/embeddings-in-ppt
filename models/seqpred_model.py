@@ -9,7 +9,8 @@ class SeqPred(nn.Module):
 
     self.densel1 = nn.Linear(input_size, num_units_l1, bias=False)
     self.bn1 = nn.BatchNorm1d(num_features=num_units_l1)
-    self.gru = nn.GRU(num_units_l1+input_size, num_units_encoder, bidirectional=True, batch_first=True)
+    #self.gru = nn.GRU(num_units_l1+input_size, num_units_encoder, bidirectional=True, batch_first=True)
+    self.gru = nn.GRU(num_units_l1, num_units_encoder, bidirectional=True, batch_first=True)
     self.drop = nn.Dropout()
     self.relu = nn.ReLU()
     
@@ -45,7 +46,7 @@ class SeqPred(nn.Module):
     x = self.densel1(inp).permute(0,2,1)
     x = self.bn1(x).permute(0,2,1)
     x = self.relu(x)
-    x = torch.cat((inp,x), dim=2)
+    #x = torch.cat((inp,x), dim=2)
     
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, _ = self.gru(pack)
