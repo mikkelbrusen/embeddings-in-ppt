@@ -3,7 +3,7 @@
 #BSUB -q gpuv100
 
 ### -- set the job Name --
-#BSUB -J testjob
+#BSUB -J opti
 
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
@@ -12,10 +12,10 @@
 #BSUB -gpu "num=1:mode=exclusive_process"
 
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
-#BSUB -W 23:00
-
+#BSUB -W 01:00
+#BSUB -R "select[gpu32gb]"
 # request 8GB of system-memory
-#BSUB -R "rusage[mem=12GB]"
+#BSUB -R "rusage[mem=20GB]"
 
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --

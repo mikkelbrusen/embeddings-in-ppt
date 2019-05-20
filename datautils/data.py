@@ -180,7 +180,7 @@ def chop_sequences(X, t, mask, length):
 
 
 class gen_data():
-    def __init__(self, num_iterations=1000001, batch_size=64, data_fn=load_data):
+    def __init__(self, num_iterations=1000001, batch_size=91, data_fn=load_data):
         print("initializing data generator!")
         self._num_iterations = num_iterations
         self._batch_size = batch_size
@@ -303,5 +303,15 @@ class gen_data():
             else:
                 continue
             break
+    
+    def get_valid_data(self):
+      X, t, mask = chop_sequences(self._data_dict['X_valid'], self._data_dict['t_valid'], self._data_dict['mask_valid'], self._data_dict['length_valid'].astype(dtype="int32"))
+      return X, t, mask, self._data_dict['length_valid']
+
+    def get_test_data(self):
+      X, t, mask = chop_sequences(self._data_dict['X_test'], self._data_dict['t_test'], self._data_dict['mask_test'], self._data_dict['length_test'].astype(dtype="int32"))
+      return X, t, mask, self._data_dict['length_test']
+    
+
 
       
