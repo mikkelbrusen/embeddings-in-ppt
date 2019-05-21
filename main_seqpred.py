@@ -9,10 +9,9 @@ sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred
 
-clip_norm = 1
-valid_every = 50
-num_iterations = 58
-#num_iterations = 1
+clip_norm = 0.5
+num_batch = 50
+batch_size = 64
 num_epochs = 100
 lr = 0.001
 number_outputs = 8
@@ -72,7 +71,7 @@ def evaluate(crf_on, is_test):
         return loss / num_samples, accuracy
 
 
-def train(crf_on):
+def train(crf_on, num_batch):
     train_err = 0
     total_samples = 0
     accuracy = 0
@@ -81,7 +80,8 @@ def train(crf_on):
     if crf_on:
         crf.train()
     start_time = time.time()
-    for idx, batch in enumerate(data_gen.gen_train()):
+    for b in range(num_batch):
+        batch = next(data_gen_train)
         seq_lengths = batch['mask'].sum(1).astype(np.int32)
         #sort to be in decending order for pad packed to work
         perm_idx = np.argsort(-seq_lengths)
@@ -163,15 +163,13 @@ if crf_on:
     print("CRF: ", crf)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 
-data_gen = data.gen_data(num_iterations=num_iterations)
-#for idx, batch in enumerate(data_gen.gen_train()):
-#    print(idx)
+data_gen = data.gen_data(num_iterations=num_batch, batch_size=batch_size)
+data_gen_train = data_gen.gen_train()
 
-
-best_val_acc = 0
+best_val_acc = 0.0
 for epoch in range(num_epochs):
     start_time = time.time()
-    train_loss, train_accuracy = train(crf_on=crf_on)
+    train_loss, train_accuracy = train(crf_on=crf_on, num_batch=num_batch)
     val_loss, val_accuracy = evaluate(crf_on=crf_on, is_test=False)
     if val_accuracy > best_val_acc:
         best_val_acc = val_accuracy
