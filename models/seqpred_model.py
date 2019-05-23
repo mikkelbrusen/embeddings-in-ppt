@@ -7,11 +7,11 @@ class SeqPred(nn.Module):
   def __init__(self, input_size=42, num_units_encoder=400, num_units_l1=200, num_units_l2=200, number_outputs=8):
     super(SeqPred, self).__init__()
 
+    # bias=False if BatchNorm1d is used
     self.densel1 = nn.Linear(input_size, num_units_l1)
     #self.bn1 = nn.BatchNorm1d(num_features=num_units_l1)
     self.gru = nn.GRU(input_size=num_units_l1+input_size, hidden_size=num_units_encoder, bidirectional=True, batch_first=True)
-    #self.gru = nn.GRU(num_units_l1, num_units_encoder, bidirectional=True, batch_first=True)
-    self.drop = nn.Dropout()
+    self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
     
     self.densel2 = nn.Linear(num_units_encoder*2, num_units_l2)
@@ -25,10 +25,10 @@ class SeqPred(nn.Module):
     torch.nn.init.xavier_uniform_(tensor=self.densel1.weight.data, gain=1.0)
     
     self.densel2.bias.data.zero_()
-    torch.nn.init.xavier_uniform_(self.densel2.weight.data, gain=1.0)
+    torch.nn.init.xavier_uniform_(tensor=self.densel2.weight.data, gain=1.0)
 
     self.label.bias.data.zero_()
-    torch.nn.init.xavier_uniform_(self.label.weight.data, gain=1.0)
+    torch.nn.init.xavier_uniform_(tensor=self.label.weight.data, gain=1.0)
     
     for m in self.modules():
         if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
