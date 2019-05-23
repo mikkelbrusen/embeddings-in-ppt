@@ -7,7 +7,7 @@ from torch.autograd import Variable
 
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
-from models.awd_model import AWD_Embedding
+from model_utils.awd_model import AWD_Embedding
 
 class Config(BaseConfig):
   def __init__(self, args):

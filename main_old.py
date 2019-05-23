@@ -14,7 +14,7 @@ from utils import iterate_minibatches, ResultsContainer, tensor_to_onehot
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
 from models.model import ABLSTM, StraightToLinear, SeqVec
-from models.awd_model import AWD_Embedding
+from model_utils.awd_model import AWD_Embedding
 from datautils.dataloader import tokenize_sequence
 
 
