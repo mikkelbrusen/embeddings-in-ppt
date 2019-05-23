@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from models.attention import Attention, MultiStepAttention
-from models.deeploc.base import Model as BaseModel
-from models.deeploc.base import Config as BaseConfig
+from models.subcel.base import Model as BaseModel
+from models.subcel.base import Config as BaseConfig
 from models.awd_model import AWD_Embedding
 
 class Config(BaseConfig):

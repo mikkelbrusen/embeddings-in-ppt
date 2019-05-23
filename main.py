@@ -32,7 +32,7 @@ base_parser.add_argument('--save', help="Path to best saved model", default="sav
 base_parser.add_argument('--save_results', help="Path to result object containing all kind of results", default="save/best_results_" + current_time)
 
 ### SUBPARSERS ### 
-subparsers = parser.add_subparsers()
+subparsers = parser.add_subparsers(dest='parser_name')
 
 # Subcellular
 parser_subcel = subparsers.add_parser("subcel", help='Experiments in subcellular localization', parents=[base_parser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -69,7 +69,7 @@ if torch.cuda.is_available():
 ###############################################################################
 # Training
 ###############################################################################
-Config = import_module('models.deeploc.{}'.format(args.model)).Config
+Config = import_module('models.{}.{}'.format(args.parser_name, args.model)).Config
 config = Config(args)
 
 best_val_accs, best_val_models = config.trainer()
