@@ -6,7 +6,13 @@ from torch.autograd import Variable
 
 from models.attention import Attention, MultiStepAttention
 from models.deeploc.base import Model as BaseModel
+from models.deeploc.base import Config as BaseConfig
 from models.awd_model import AWD_Embedding
+
+class Config(BaseConfig):
+  def __init__(self, args):
+    super().__init__(args)
+    self.Model = Model
 
 class Model(BaseModel):
   def __init__(self, args):
