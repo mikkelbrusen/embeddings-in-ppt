@@ -10,8 +10,8 @@ import datautils.data as data
 from models.seqpred_model import SeqPred
 
 clip_norm = 1
-num_batch = 50
-batch_size = 64
+num_batch = 44
+batch_size = 128
 num_epochs = 100
 lr = 1e-3
 number_outputs = 8
@@ -165,7 +165,7 @@ if crf_on:
     crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
     best_crf = crf
     print("CRF: ", crf)
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(params=list(model.parameters()) + list(crf.parameters()), lr=lr)
 
 data_gen = data.gen_data(num_iterations=num_batch, batch_size=batch_size)
 data_gen_train = data_gen.gen_train()

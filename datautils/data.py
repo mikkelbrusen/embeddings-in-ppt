@@ -6,7 +6,7 @@ sys.path.insert(0,'..')
 import datautils.casphandle as casphandle
 import utils
 
-TRAIN_PATH = 'data/SecPred/train.npy'
+TRAIN_PATH = 'data/SecPred/train_nf.npy'
 TEST_PATH = 'data/SecPred/test.npy'
 ##### TRAIN DATA #####
 
@@ -18,7 +18,7 @@ def get_train(seq_len=None):
     print("Train path is downloaded ...")
   print("Loading train data ...")
   X_in = np.load(TRAIN_PATH)
-  X = np.reshape(X_in,(5534,700,57))
+  X = np.reshape(X_in,(6133,700,57))
   del X_in
   X = X[:,:,:]
   labels = X[:,:,22:30]
@@ -54,25 +54,22 @@ def get_train(seq_len=None):
   seq_names = np.arange(0,num_seqs)
   #np.random.shuffle(seq_names)
 
-  X_train = X[seq_names[0:5278]]
-  X_valid = X[seq_names[5278:5534]]
-  labels_train = labels[seq_names[0:5278]]
-  labels_valid = labels[seq_names[5278:5534]]
-  mask_train = mask[seq_names[0:5278]]
-  mask_valid = mask[seq_names[5278:5534]]
+  X_train = X[seq_names[0:5600]]
+  X_valid = X[seq_names[5877:6133]]
+  X_test = X[seq_names[5605:5877]]
+  labels_train = labels[seq_names[0:5600]]
+  labels_valid = labels[seq_names[5877:6133]]
+  labels_test = labels[seq_names[5605:5877]]
+  mask_train = mask[seq_names[0:5600]]
+  mask_valid = mask[seq_names[5877:6133]]
+  mask_test = mask[seq_names[5605:5877]]
   num_seq_train = np.size(X_train,0)
   num_seq_valid = np.size(X_valid,0)
-  if seq_len is not None:
-    X_train = X_train[:, :seq_len]
-    X_valid = X_valid[:, :seq_len]
-    labels_train = labels_train[:, :seq_len]
-    labels_valid = labels_valid[:, :seq_len]
-    mask_train = mask_train[:, :seq_len]
-    mask_valid = mask_valid[:, :seq_len]
   len_train = np.sum(mask_train, axis=1)
   len_valid = np.sum(mask_valid, axis=1)
-  return X_train, X_valid, labels_train, labels_valid, mask_train, \
-      mask_valid, len_train, len_valid, num_seq_train
+  len_test = np.sum(mask_test, axis=1)
+  return X_train, X_valid, X_test, labels_train, labels_valid, labels_test, mask_train, \
+      mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train
 #del split
 ##### TEST DATA #####
 
@@ -137,9 +134,9 @@ def get_casp(seq_len=None):
 
 
 def load_data():
-  X_train, X_valid, t_train, t_valid, mask_train, \
-    mask_valid, len_train, len_valid, num_seq_train = get_train()
-  X_test, mask_test, t_test, num_seq_test, len_test = get_test()
+  X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
+    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train()
+  #X_test, mask_test, t_test, num_seq_test, len_test = get_test()
   X_casp, mask_casp, t_casp, len_casp = get_casp()
 
   dict_out = dict()
