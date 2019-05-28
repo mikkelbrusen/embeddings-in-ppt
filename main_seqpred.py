@@ -9,10 +9,15 @@ sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred
 
+is_cb513 = True
 clip_norm = 1
-num_batch = 44
-batch_size = 128
-num_epochs = 100
+if is_cb513:
+    num_batch = 83
+else:
+    num_batch = 88
+
+batch_size = 64
+num_epochs = 300
 lr = 1e-3
 number_outputs = 8
 crf_on = False
@@ -155,6 +160,7 @@ def calculate_accuracy(preds, targets, mask):
 # Network compilation
 model = SeqPred().to(device)
 best_model = model
+print("is_cb513", is_cb513)
 print("batch_size", batch_size)
 print("num_batch", num_batch)
 print("clip_norm", clip_norm)
@@ -167,7 +173,7 @@ if crf_on:
     print("CRF: ", crf)
     optimizer = torch.optim.Adam(params=list(model.parameters()) + list(crf.parameters()), lr=lr)
 
-data_gen = data.gen_data(num_iterations=num_batch, batch_size=batch_size)
+data_gen = data.gen_data(num_iterations=num_batch, batch_size=batch_size, is_cb513=is_cb513)
 data_gen_train = data_gen.gen_train()
 
 #for epoch in range(num_epochs):

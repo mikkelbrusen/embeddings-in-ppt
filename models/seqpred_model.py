@@ -9,7 +9,7 @@ class SeqPred(nn.Module):
 
     # bias=False if BatchNorm1d is used
     self.densel1 = nn.Linear(input_size, num_units_l1)
-    #self.bn1 = nn.BatchNorm1d(num_features=num_units_l1)
+    self.bn1 = nn.BatchNorm1d(num_features=num_units_l1)
     self.gru = nn.GRU(input_size=num_units_l1+input_size, hidden_size=num_units_encoder, bidirectional=True, batch_first=True)
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
@@ -43,8 +43,10 @@ class SeqPred(nn.Module):
               param.data.zero_()
     
   def forward(self, inp, seq_lengths):
-    x = self.relu(self.densel1(inp))#.permute(0,2,1)
+    x = self.densel1(inp)#.permute(0,2,1)
     #x = self.bn1(x).permute(0,2,1)
+    x = self.relu(x)
+    
     x = torch.cat((inp,x), dim=2)
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, _ = self.gru(pack)
@@ -52,7 +54,10 @@ class SeqPred(nn.Module):
     
     output = self.drop(output)
 
-    output = self.relu(self.densel2(output))
+    output = self.densel2(output).permute(0,2,1)
+    output = self.bn1(output).permute(0,2,1)
+    output = self.relu(output)
+    #output = self.relu(self.densel2(output))
     out = self.label(output)
 
     return out

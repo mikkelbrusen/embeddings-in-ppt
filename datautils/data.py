@@ -6,18 +6,83 @@ sys.path.insert(0,'..')
 import datautils.casphandle as casphandle
 import utils
 
-TRAIN_PATH = 'data/SecPred/train_nf.npy'
+TRAIN_PATH_CULLPDB = 'data/SecPred/train_nf.npy'
+TRAIN_PATH_CB513 = 'data/SecPred/train.npy'
 TEST_PATH = 'data/SecPred/test.npy'
 ##### TRAIN DATA #####
 
-def get_train(seq_len=None):
-  if not os.path.isfile(TRAIN_PATH):
+def get_train_cb513(seq_len=None):
+  if not os.path.isfile(TRAIN_PATH_CB513):
     print("Train path is not downloaded ...")
     subprocess.call("./download_train.sh", shell=True)
   else:
     print("Train path is downloaded ...")
   print("Loading train data ...")
-  X_in = np.load(TRAIN_PATH)
+  X_in = np.load(TRAIN_PATH_CB513)
+  X = np.reshape(X_in,(5534,700,57))
+  del X_in
+  X = X[:,:,:]
+  labels = X[:,:,22:30]
+  mask = X[:,:,30] * -1 + 1
+
+  a = np.arange(0,21)
+  b = np.arange(35,56)
+  c = np.hstack((a,b))
+  X = X[:,:,c]
+
+  # getting meta
+  num_seqs = np.size(X,0)
+  seqlen = np.size(X,1)
+  d = np.size(X,2)
+  num_classes = 8
+
+  #### REMAKING LABELS ####
+  X = X.astype("float32")
+  mask = mask.astype("float32")
+  # Dummy -> concat
+  vals = np.arange(0,8)
+  labels_new = np.zeros((num_seqs,seqlen))
+  for i in range(np.size(labels,axis=0)):
+    labels_new[i,:] = np.dot(labels[i,:,:], vals)
+  labels_new = labels_new.astype('int32')
+  labels = labels_new
+
+  print("Loading splits ...")
+  ##### SPLITS #####
+  # getting splits (cannot run before splits are made)
+  #split = np.load("data/split.pkl")
+
+  seq_names = np.arange(0,num_seqs)
+  #np.random.shuffle(seq_names)
+
+  X_train = X[seq_names[0:5278]]
+  X_valid = X[seq_names[5278:5534]]
+  labels_train = labels[seq_names[0:5278]]
+  labels_valid = labels[seq_names[5278:5534]]
+  mask_train = mask[seq_names[0:5278]]
+  mask_valid = mask[seq_names[5278:5534]]
+  num_seq_train = np.size(X_train,0)
+  num_seq_valid = np.size(X_valid,0)
+  if seq_len is not None:
+    X_train = X_train[:, :seq_len]
+    X_valid = X_valid[:, :seq_len]
+    labels_train = labels_train[:, :seq_len]
+    labels_valid = labels_valid[:, :seq_len]
+    mask_train = mask_train[:, :seq_len]
+    mask_valid = mask_valid[:, :seq_len]
+  len_train = np.sum(mask_train, axis=1)
+  len_valid = np.sum(mask_valid, axis=1)
+  return X_train, X_valid, labels_train, labels_valid, mask_train, \
+      mask_valid, len_train, len_valid, num_seq_train
+
+def get_train_cullpdb(seq_len=None):
+  if not os.path.isfile(TRAIN_PATH_CULLPDB):
+    print("Train path is not downloaded ...")
+    subprocess.call("./download_train.sh", shell=True)
+  else:
+    print("Train path is downloaded ...")
+  print("Loading train data ...")
+  X_in = np.load(TRAIN_PATH_CULLPDB)
   X = np.reshape(X_in,(6133,700,57))
   del X_in
   X = X[:,:,:]
@@ -133,10 +198,15 @@ def get_casp(seq_len=None):
   return X_casp, mask_casp, t_casp, len_casp
 
 
-def load_data():
-  X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
-    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train()
-  #X_test, mask_test, t_test, num_seq_test, len_test = get_test()
+def load_data(is_cb513):
+  if is_cb513:
+    X_train, X_valid, t_train, t_valid, mask_train, \
+    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513()
+    X_test, mask_test, t_test, num_seq_test, len_test = get_test()
+  else:
+    X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
+    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train_cullpdb()
+
   X_casp, mask_casp, t_casp, len_casp = get_casp()
 
   dict_out = dict()
@@ -164,11 +234,11 @@ def chop_sequences(X, t, mask, length):
 
 
 class gen_data():
-    def __init__(self, num_iterations, batch_size, data_fn=load_data):
+    def __init__(self, num_iterations, batch_size, is_cb513, data_fn=load_data):
         print("initializing data generator!")
         self._num_iterations = num_iterations
         self._batch_size = batch_size
-        self._data_dict = load_data()
+        self._data_dict = load_data(is_cb513)
         self._seq_len = 700
         print(self._data_dict.keys())
         if 'X_train' in self._data_dict.keys():
