@@ -62,7 +62,7 @@ class Model(nn.Module):
             if 'bias' in name:
               param.data.zero_()
     
-  def forward(self, inp, seq_lengths):
+  def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len)
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 
     inp = self.in_drop1d(inp) # feature dropout
