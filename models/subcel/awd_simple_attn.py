@@ -29,7 +29,7 @@ class SimpleAttention(nn.Module):
     self.init_weights()
 
     # load pretrained awd
-    with open("awd_lstm/test_v2_statedict.pt", 'rb') as f:
+    with open("pretrained_models/awd_lstm/test_v2_statedict.pt", 'rb') as f:
         state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
     self.awd.load_state_dict(state_dict)
 

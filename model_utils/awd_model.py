@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from awd_lstm.weight_drop import WeightDrop
-from awd_lstm.embed_regularize import embedded_dropout
-from awd_lstm.locked_dropout import LockedDropout
+from pretrained_models.awd_lstm.weight_drop import WeightDrop
+from pretrained_models.awd_lstm.embed_regularize import embedded_dropout
+from pretrained_models.awd_lstm.locked_dropout import LockedDropout
 
 class AWD_Embedding(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""

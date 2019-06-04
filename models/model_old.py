@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 sys.path.insert(0,'..')
-from models.attention import Attention, MultiStepAttention
+from model_utils.attention import Attention, MultiStepAttention
 from utils import length_to_mask, do_layer_norm
 
 
@@ -23,6 +23,7 @@ class ABLSTM(nn.Module):
     self.convs = nn.ModuleList([nn.Conv1d(in_channels=n_feat, out_channels=n_filt, kernel_size=i, padding=i//2) for i in conv_kernel_sizes])
     self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*n_filt, out_channels=128, kernel_size=3, padding= 3//2)
     self.lstm = nn.LSTM(128, n_hid, bidirectional=True, batch_first=True)
+    self.lstm2 = nn.LSTM(n_hid*2+320, n_hid, bidirectional=True, batch_first=True)
     
     self.relu = nn.ReLU()
     if (is_multi_step):
@@ -85,7 +86,11 @@ class ABLSTM(nn.Module):
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
     # Concat 320 hidden layer to BiLSTM
-    #output = torch.cat((output, awd_hid),dim=2) # (batch_size, seq_len, hidden_size*2+320)
+    output = torch.cat((output, awd_hid),dim=2) # (batch_size, seq_len, hidden_size*2+320)
+
+    pack = nn.utils.rnn.pack_padded_sequence(output, seq_lengths, batch_first=True)
+    packed_output, (h, c) = self.lstm2(pack) #h = (2, batch_size, hidden_size)
+    output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
   
     attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
     output = self.drop(attn_output)
