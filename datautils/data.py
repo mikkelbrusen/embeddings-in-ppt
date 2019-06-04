@@ -226,7 +226,7 @@ def load_data(is_cb513):
   dict_out['length_valid'] = len_valid
   dict_out['length_test'] = len_test
   dict_out['length_casp'] = len_casp
-  return dict_out
+  return dict_out, num_seq_train
 
 def chop_sequences(X, t, mask, length):
     max_len = np.max(length)
@@ -234,11 +234,11 @@ def chop_sequences(X, t, mask, length):
 
 
 class gen_data():
-    def __init__(self, num_iterations, batch_size, is_cb513, data_fn=load_data):
+    def __init__(self, batch_size, is_cb513, data_fn=load_data):
         print("initializing data generator!")
-        self._num_iterations = num_iterations
+        #self._num_iterations = num_iterations
         self._batch_size = batch_size
-        self._data_dict = load_data(is_cb513)
+        self._data_dict, self._num_seq_train = load_data(is_cb513)
         self._seq_len = 700
         print(self._data_dict.keys())
         if 'X_train' in self._data_dict.keys():

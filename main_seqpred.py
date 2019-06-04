@@ -11,14 +11,14 @@ from models.seqpred_model import SeqPred
 
 is_cb513 = True
 clip_norm = 1
-if is_cb513:
-    num_batch = 83
-else:
-    num_batch = 88
-
 batch_size = 64
-num_epochs = 300
+num_epochs = 400
 lr = 1e-3
+#Model setup
+input_size = 42
+num_units_l1 = 500
+num_units_lstm = 500
+num_units_l2 = 400
 number_outputs = 8
 crf_on = False
 if crf_on:
@@ -158,14 +158,8 @@ def calculate_accuracy(preds, targets, mask):
     #    return np.sum(((out == label).flatten()*mask.flatten())).astype('float32') / np.sum(mask).astype('float32')
 
 # Network compilation
-model = SeqPred().to(device)
+model = SeqPred(input_size=input_size, num_units_l1=num_units_l1, num_units_lstm=num_units_lstm,  num_units_l2=num_units_l2, number_outputs=number_outputs).to(device)
 best_model = model
-print("is_cb513", is_cb513)
-print("batch_size", batch_size)
-print("num_batch", num_batch)
-print("clip_norm", clip_norm)
-print("lr", lr)
-print("Model: ", model)
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 if crf_on:
     crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
@@ -173,8 +167,16 @@ if crf_on:
     print("CRF: ", crf)
     optimizer = torch.optim.Adam(params=list(model.parameters()) + list(crf.parameters()), lr=lr)
 
-data_gen = data.gen_data(num_iterations=num_batch, batch_size=batch_size, is_cb513=is_cb513)
+data_gen = data.gen_data(batch_size=batch_size, is_cb513=is_cb513)
+num_batch = data_gen._num_seq_train // batch_size
 data_gen_train = data_gen.gen_train()
+
+print("is_cb513", is_cb513)
+print("batch_size", batch_size)
+print("num_batch", num_batch)
+print("clip_norm", clip_norm)
+print("lr", lr)
+print("Model: ", model)
 
 #for epoch in range(num_epochs):
 #    for b in range(num_batch):
