@@ -8,7 +8,7 @@ from pretrained_models.elmo.locked_dropout import LockedDropout
 class Elmo(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, ntoken, ninp, nhid, nlayers, dropout=0.5, dropouth=0.5, dropouti=0.5, dropoute=0.1, wdrop=0, tie_weights=False):
+    def __init__(self, ntoken, ninp, nhid, nlayers, dropout=0.1, dropouth=0.1, dropouti=0.1, dropoute=0.1, wdrop=0.1, tie_weights=False):
         super(Elmo, self).__init__()
         self.lockdrop = LockedDropout()
         self.idrop = nn.Dropout(dropouti)

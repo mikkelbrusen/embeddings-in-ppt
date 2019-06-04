@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 # Base parser for all
 base_parser = argparse.ArgumentParser(add_help=False)
 base_parser.add_argument('--batch_size',  help="Minibatch size", type=int, default=128)
-base_parser.add_argument('--epochs',  help="Number of training epochs", type=int, default=2)
+base_parser.add_argument('--epochs',  help="Number of training epochs", type=int, default=200)
 base_parser.add_argument('--learning_rate',  help="Learning rate", type=int, default=0.0005)
 base_parser.add_argument('--seed',  help="Seed for random number init.", type=int, default=123456)
 base_parser.add_argument('--clip', help="Gradient clipping", type=int, default=2)
