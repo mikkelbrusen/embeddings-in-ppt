@@ -14,9 +14,9 @@ class SeqPred(nn.Module):
     self.bi_rnn = nn.LSTM(input_size=num_units_l1+input_size, hidden_size=num_units_lstm, num_layers=3, bidirectional=True, batch_first=True)
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
-    #self.softmax = nn.Softmax(dim=2)
-    self.densel2 = nn.Linear(num_units_lstm*2+input_size, num_units_l2)
-    #self.densel2 = nn.Linear(num_units_lstm*2, num_units_l2)
+
+    self.densel2 = nn.Linear(num_units_lstm*2, num_units_l2)
+
     self.label = nn.Linear(num_units_l2, number_outputs)
  
     self.init_weights()
@@ -48,17 +48,13 @@ class SeqPred(nn.Module):
     x = self.densel1(inp)#.permute(0,2,1)
     #x = self.bn1(x).permute(0,2,1)
     x = self.relu(x)
+
     x = torch.cat((inp,x), dim=2)
     pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
     packed_output, _ = self.bi_rnn(pack)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
-    output = torch.cat((inp,output), dim=2)
     
     output = self.drop(output)
-    #output = self.densel2(output).permute(0,2,1)
-    #output = self.bn1(output).permute(0,2,1)
-    #output = self.relu(output)
     output = self.relu(self.densel2(output))
-    output = self.drop(output)
     out = self.label(output)
     return out

@@ -9,8 +9,9 @@ sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred
 
+crf_on = True
 is_cb513 = True
-clip_norm = 1
+clip_norm = 0.2
 batch_size = 64
 num_epochs = 400
 lr = 1e-3
@@ -20,7 +21,6 @@ num_units_l1 = 500
 num_units_lstm = 500
 num_units_l2 = 400
 number_outputs = 8
-crf_on = False
 if crf_on:
     from torchcrf import CRF
 
@@ -56,7 +56,8 @@ def evaluate(crf_on, is_test):
         
         if crf_on:
             # calculate loss
-            loss = -crf(output, targets, mask_byte)
+            loss = -crf(emissions=output, tags=targets, mask=mask_byte, reduction='none')
+            loss = torch.sum(loss) / (torch.sum(mask_float)+1e-12)
 
             # calculate accuaracy
             preds_list = crf.decode(emissions=output, mask=mask_byte)
@@ -106,7 +107,8 @@ def train(crf_on, num_batch):
         
         if crf_on:
             # calculate loss
-            loss = -crf(output, targets, mask_byte)
+            loss = -crf(emissions=output, tags=targets, mask=mask_byte, reduction='none')
+            loss = torch.sum(loss) / (torch.sum(mask_float)+1e-12)
             loss.backward()
 
             # calculate accuaracy
@@ -164,13 +166,13 @@ optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 if crf_on:
     crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
     best_crf = crf
-    print("CRF: ", crf)
     optimizer = torch.optim.Adam(params=list(model.parameters()) + list(crf.parameters()), lr=lr)
 
 data_gen = data.gen_data(batch_size=batch_size, is_cb513=is_cb513)
 num_batch = data_gen._num_seq_train // batch_size
 data_gen_train = data_gen.gen_train()
 
+print("CRF ON: ", crf_on)
 print("is_cb513", is_cb513)
 print("batch_size", batch_size)
 print("num_batch", num_batch)
