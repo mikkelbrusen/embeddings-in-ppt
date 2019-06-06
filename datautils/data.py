@@ -30,6 +30,8 @@ def get_train_cb513(seq_len=None):
   c = np.hstack((a,b))
   X = X[:,:,c]
 
+  
+
   # getting meta
   num_seqs = np.size(X,0)
   seqlen = np.size(X,1)

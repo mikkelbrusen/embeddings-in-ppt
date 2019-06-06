@@ -11,8 +11,8 @@ from models.seqpred_model import SeqPred
 
 crf_on = True
 is_cb513 = True
-clip_norm = 0.2
-batch_size = 64
+clip_norm = 1
+batch_size = 91
 num_epochs = 400
 lr = 1e-3
 #Model setup
@@ -21,16 +21,12 @@ num_units_l1 = 500
 num_units_lstm = 500
 num_units_l2 = 400
 number_outputs = 8
-if crf_on:
-    from torchcrf import CRF
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def evaluate(crf_on, is_test):
     accuracy = 0
     model.eval()
-    if crf_on:
-        crf.eval()
     with torch.no_grad():
         if is_test:
             inputs, targets, mask, seq_lengths = data_gen.get_test_data()
@@ -55,13 +51,15 @@ def evaluate(crf_on, is_test):
                 #seq_lengths ...
         
         if crf_on:
+            output = output.permute(1,0,2)
+            targets = targets.permute(1,0)
+            mask_byte = mask_byte.permute(1,0) 
             # calculate loss
-            loss = -crf(emissions=output, tags=targets, mask=mask_byte, reduction='none')
-            loss = torch.sum(loss) / (torch.sum(mask_float)+1e-12)
+            loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
 
             # calculate accuaracy
-            preds_list = crf.decode(emissions=output, mask=mask_byte)
-            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
+            preds_list = model.crf.decode(emissions=output, mask=mask_byte)
+            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
         else:
             # calculate loss
             loss = 0
@@ -83,8 +81,6 @@ def train(crf_on, num_batch):
     accuracy = 0
     train_batches = 0
     model.train()
-    if crf_on:
-        crf.train()
     start_time = time.time()
     for b in range(num_batch):
         batch = next(data_gen_train)
@@ -107,15 +103,17 @@ def train(crf_on, num_batch):
         
         if crf_on:
             # calculate loss
-            loss = -crf(emissions=output, tags=targets, mask=mask_byte, reduction='none')
-            loss = torch.sum(loss) / (torch.sum(mask_float)+1e-12)
+            output = output.permute(1,0,2)
+            targets = targets.permute(1,0)
+            mask_byte = mask_byte.permute(1,0) 
+            loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
             loss.backward()
 
             # calculate accuaracy
-            preds_list = crf.decode(emissions=output, mask=mask_byte)
-            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
+            preds_list = model.crf.decode(emissions=output, mask=mask_byte)
+            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
 
-            torch.nn.utils.clip_grad_norm_(parameters=list(model.parameters()) + list(crf.parameters()), max_norm=clip_norm)
+            torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
             #torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
         else:
             # calculate loss
@@ -160,13 +158,9 @@ def calculate_accuracy(preds, targets, mask):
     #    return np.sum(((out == label).flatten()*mask.flatten())).astype('float32') / np.sum(mask).astype('float32')
 
 # Network compilation
-model = SeqPred(input_size=input_size, num_units_l1=num_units_l1, num_units_lstm=num_units_lstm,  num_units_l2=num_units_l2, number_outputs=number_outputs).to(device)
+model = SeqPred(input_size=input_size, num_units_l1=num_units_l1, num_units_lstm=num_units_lstm,  num_units_l2=num_units_l2, number_outputs=number_outputs, crf_on=crf_on).to(device)
 best_model = model
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
-if crf_on:
-    crf = CRF(num_tags=number_outputs, batch_first=True).to(device)
-    best_crf = crf
-    optimizer = torch.optim.Adam(params=list(model.parameters()) + list(crf.parameters()), lr=lr)
 
 data_gen = data.gen_data(batch_size=batch_size, is_cb513=is_cb513)
 num_batch = data_gen._num_seq_train // batch_size
@@ -184,6 +178,10 @@ print("Model: ", model)
 #    for b in range(num_batch):
 #        batch = next(data_gen_train)
 #        print(b)
+#        mask_float = torch.from_numpy(batch['mask']).type(torch.float).permute(1,0)
+#        mask_b = mask_float.sum(dim=0)
+#        for b1 in mask_b:
+#            assert b1.item() != 137
 
 best_val_acc = 0.0
 for epoch in range(num_epochs):
@@ -193,8 +191,6 @@ for epoch in range(num_epochs):
     if val_accuracy > best_val_acc:
         best_val_acc = val_accuracy
         idx = epoch
-        if crf_on:
-            best_crf = crf
         best_model = model
 
 
@@ -214,8 +210,6 @@ print('-' * 79)
 
 #test
 model = best_model
-if crf_on:
-    crf = best_crf
 test_loss, test_accuracy = evaluate(crf_on=crf_on, is_test=True)
 
 print('| Test | acc {:.2f}% ' 
