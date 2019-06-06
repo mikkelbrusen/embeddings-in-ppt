@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import torch
+from collections import OrderedDict
 from torch.autograd import Variable
 
 def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize, shuffle=True, sort_len=True, sample_last_batch=True):
@@ -166,6 +167,33 @@ def reverse_padded_sequence(inputs, lengths, batch_first=False):
     if batch_first:
         reversed_inputs = reversed_inputs.transpose(0, 1)
     return reversed_inputs
+
+
+
+# https://gist.github.com/the-bass/0bf8aaa302f9ba0d26798b11e4dd73e3
+def rename_state_dict_keys(state_dict, key_transformation):
+    """
+    state_dict         -> State dict object.
+    key_transformation -> Function that accepts the old key names of the state
+                          dict as the only argument and returns the new key name.
+    Example:
+    Rename the key `layer.0.weight` `layer.1.weight` and keep the names of all
+    other keys.
+    ```py
+    def key_transformation(old_key):
+        if old_key == "layer.0.weight":
+            return "layer.1.weight"
+        return old_key
+    rename_state_dict_keys(state_dict, key_transformation)
+    ```
+    """
+    new_state_dict = OrderedDict()
+
+    for key, value in state_dict.items():
+        new_key = key_transformation(key)
+        new_state_dict[new_key] = value
+
+    return new_state_dict
 
 def do_layer_norm(tensor, mask):
     # Prepare variables
