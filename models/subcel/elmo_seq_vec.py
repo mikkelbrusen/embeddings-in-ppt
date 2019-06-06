@@ -34,7 +34,7 @@ class Model(nn.Module):
         self.args = args
         self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
 
-        self.linear = nn.Linear(1280, 32)
+        self.linear = nn.Linear(2560, 32)
         self.drop = nn.Dropout(0.25)
         self.relu = nn.ReLU()
         self.bn = nn.BatchNorm1d(32)
@@ -62,8 +62,8 @@ class Model(nn.Module):
         (elmo_hid, elmo_hid_rev) = dropped_all_hid # [(seq_len, bs, 1280),(seq_len, bs, 1280),(seq_len, bs, emb_size)] , ...
         ### End Elmo 
         
-        model_input = (elmo_hid[0] + elmo_hid[1] + elmo_hid_rev[0] + elmo_hid_rev[1]) #(seq_len, bs, 1280)
-        model_input = model_input.mean(0) # (bs, 1280)
+        model_input = torch.cat(((elmo_hid[0] + elmo_hid[1]), (elmo_hid_rev[0] + elmo_hid_rev[1])), dim=2) #(seq_len, bs, 2560)
+        model_input = model_input.mean(0) # (bs, 2560)
 
         output = self.bn(self.relu(self.drop(self.linear(model_input))))
 

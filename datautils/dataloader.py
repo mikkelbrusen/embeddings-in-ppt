@@ -33,6 +33,7 @@ def tokenize_sequence(data, seq_len=1000):
     mask_legal = []
     illegals = 0
     for i, entry in enumerate(data):
+        # fill with padding
         sequence = np.empty(seq_len, dtype=int)
         sequence[:] = 20
         
