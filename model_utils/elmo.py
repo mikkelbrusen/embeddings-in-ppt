@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from utils import reverse_padded_sequence
+
 from pretrained_models.elmo.weight_drop import WeightDrop
 from pretrained_models.elmo.embed_regularize import embedded_dropout
 from pretrained_models.elmo.locked_dropout import LockedDropout
@@ -47,7 +49,7 @@ class Elmo(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
 
-    def forward(self, input, input_rev, hidden, hidden_rev, seq_lengths):
+    def forward(self, input, input_rev, seq_lengths):
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
         emb_rev = embedded_dropout(self.encoder, input_rev, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
 
@@ -67,12 +69,15 @@ class Elmo(nn.Module):
         for l, _ in enumerate(self.rnns):
             # current_input = raw_output
             raw_output = nn.utils.rnn.pack_padded_sequence(raw_output, seq_lengths)
-            packed_output, new_h = self.rnns[l](raw_output, hidden[l])
+            packed_output, new_h = self.rnns[l](raw_output)
             raw_output, _ = nn.utils.rnn.pad_packed_sequence(packed_output) # (seq_len, bs, hid)
 
             raw_output_rev = nn.utils.rnn.pack_padded_sequence(raw_output_rev, seq_lengths)
-            packed_output_rev, new_h_rev = self.rnns_rev[l](raw_output_rev, hidden_rev[l])
+            packed_output_rev, new_h_rev = self.rnns_rev[l](raw_output_rev)
             raw_output_rev, _ = nn.utils.rnn.pad_packed_sequence(packed_output_rev) # (seq_len, bs, hid)
+
+            # Reverse it back to normal now so that we don't have to later
+            raw_output_rev = reverse_padded_sequence(raw_output_rev, seq_lengths)
 
             new_hidden.append(new_h)
             new_hidden_rev.append(new_h_rev)
@@ -94,10 +99,4 @@ class Elmo(nn.Module):
         output_rev = self.lockdrop(raw_output_rev, self.dropout)
         outputs_rev.append(output_rev)
         
-        return (output, output_rev), (hidden, hidden_rev), (raw_outputs, raw_outputs_rev), (outputs, output_rev), (emb, emb_rev)
-
-    def init_hidden(self, bsz):
-        weight = next(self.parameters()).data
-        return [(weight.new(1, bsz, self.nhid if l != self.nlayers - 1 else (self.ninp if self.tie_weights else self.nhid)).zero_(),
-                weight.new(1, bsz, self.nhid if l != self.nlayers - 1 else (self.ninp if self.tie_weights else self.nhid)).zero_())
-                for l in range(self.nlayers)]
+        return (output, output_rev), (hidden, hidden_rev), (raw_outputs, raw_outputs_rev), (outputs, outputs_rev), (emb, emb_rev)

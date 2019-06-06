@@ -35,20 +35,14 @@ class Model(BaseModel):
         state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
     self.elmo.load_state_dict(state_dict)
 
-    # init elmo hidden
-    self.elmo_hidden = [(hid[0].to(args.device),hid[1].to(args.device)) for hid in self.elmo.init_hidden(args.batch_size)]
-    self.elmo_hidden_rev = [(hid[0].to(args.device),hid[1].to(args.device)) for hid in self.elmo.init_hidden(args.batch_size)]
-
   def forward(self, inp, seq_lengths):
     #### Elmo 
     inp_rev = reverse_padded_sequence(inp, seq_lengths, batch_first=True)
     with torch.no_grad():
-      all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, input_rev=inp_rev, hidden=self.elmo_hidden, hidden_rev=self.elmo_hidden_rev, seq_lengths=seq_lengths)
+      all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, input_rev=inp_rev, seq_lengths=seq_lengths)
     
     (elmo_hid, elmo_hid_rev) = all_hid # ((seq_len, bs, emb_size),(seq_len, bs, emb_size))
     elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
-
-    elmo_hid_rev = reverse_padded_sequence(elmo_hid_rev, seq_lengths) #reverse the sequences (seq_len, bs, emb_size)
     elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, emb_size) 
     
     ### End Elmo 

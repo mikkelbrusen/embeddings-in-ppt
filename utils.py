@@ -134,15 +134,19 @@ def tensor_to_onehot(y, n_dims=20):
 # https://github.com/rdipietro/pytorch/blob/4c00324affb8c6d53d4362e321ea0e99ede6cfde/torch/nn/utils/rnn.py
 def reverse_padded_sequence(inputs, lengths, batch_first=False):
     """Reverses sequences according to their lengths.
-    Inputs should have size ``T x B x *`` if ``batch_first`` is False, or
-    ``B x T x *`` if True. T is the length of the longest sequence (or larger),
-    B is the batch size, and * is any number of dimensions (including 0).
+    
+    `inputs` should have size `T x B x *` if `batch_first` is `False`, or
+    `B x T x *` if `True`. `T` is the length of the longest sequence (or
+    larger), `B` is the batch size, and `*` is any number of dimensions
+    (including 0).
+    
     Arguments:
-        inputs (Variable): padded batch of variable length sequences.
+        inputs (Tensor): padded batch of variable length sequences.
         lengths (list[int]): list of sequence lengths
-        batch_first (bool, optional): if True, inputs should be B x T x *.
+        batch_first (bool, optional): if `True`, `inputs` should be `B x T x *`.
+        
     Returns:
-        A Variable with the same size as inputs, but with each sequence
+        A Tensor with the same size as `inputs`, but with each sequence
         reversed according to its length.
     """
     if batch_first:
@@ -152,7 +156,7 @@ def reverse_padded_sequence(inputs, lengths, batch_first=False):
         raise ValueError('inputs is incompatible with lengths.')
     ind = [list(reversed(range(0, length))) + list(range(length, max_length))
            for length in lengths]
-    ind = Variable(torch.LongTensor(ind).transpose(0, 1))
+    ind = torch.LongTensor(ind).transpose(0, 1)
     for dim in range(2, inputs.dim()):
         ind = ind.unsqueeze(dim)
     ind = ind.expand_as(inputs)
