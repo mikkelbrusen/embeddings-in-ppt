@@ -9,18 +9,18 @@ from utils import reverse_padded_sequence, rename_state_dict_keys, length_to_mas
 from model_utils.attention import Attention, MultiStepAttention
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
-from model_utils.elmo import Elmo
+from model_utils.elmo_bi import Elmo
 
 # This is used for elmo_bi where we use bidirectional LSTMs rather than unidirectional LSTMs on reversed input
 
-# def key_transformation(old_key: str):
-#     if "rnns_rev" in old_key:
-#         old_key = "rnns" + old_key.split("rnns_rev")[1] + "_reverse"
+def key_transformation(old_key: str):
+    if "rnns_rev" in old_key:
+        old_key = "rnns" + old_key.split("rnns_rev")[1] + "_reverse"
 
-#     if "_raw_reverse" in old_key:
-#         old_key = old_key.split("_raw_reverse")[0] + "_reverse_raw"
+    if "_raw_reverse" in old_key:
+        old_key = old_key.split("_raw_reverse")[0] + "_reverse_raw"
 
-#     return old_key
+    return old_key
 
 
 class Config(BaseConfig):
@@ -47,7 +47,8 @@ class Model(nn.Module):
         with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
             state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.elmo.load_state_dict(state_dict)
+        state_dict = rename_state_dict_keys(state_dict, key_transformation)
+        self.elmo.load_state_dict(state_dict, strict=False)
 
     def init_weights(self):
         self.linear.bias.data.zero_()
@@ -55,9 +56,9 @@ class Model(nn.Module):
         
     def forward(self, inp, seq_lengths):
         #### Elmo 
-        inp_rev = reverse_padded_sequence(inp, seq_lengths, batch_first=True)
+        #inp_rev = reverse_padded_sequence(inp, seq_lengths, batch_first=True)
         with torch.no_grad():
-            all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, input_rev=inp_rev, seq_lengths=seq_lengths)
+            all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
         
         (elmo_hid, elmo_hid_rev) = dropped_all_hid # [(seq_len, bs, 1280),(seq_len, bs, 1280),(seq_len, bs, emb_size)] , ...
         ### End Elmo 

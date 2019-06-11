@@ -16,11 +16,14 @@ class Elmo(nn.Module):
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
 
-        self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0, bidirectional=True) for l in range(nlayers)]
-
-        self.rnns = [WeightDrop(rnn, ['weight_hh_l0', 'weight_hh_l0_reverse'], dropout=wdrop) for rnn in self.rnns]
+        self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0) for l in range(nlayers)]
+        self.rnns_rev = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else (ninp if tie_weights else nhid), 1, dropout=0, bidirectional=True) for l in range(nlayers)]
+        
+        self.rnns = [WeightDrop(rnn, ['weight_hh_l0'], dropout=wdrop) for rnn in self.rnns]
+        self.rnns_rev = [WeightDrop(rnn, ['weight_hh_l0_reverse'], dropout=wdrop) for rnn in self.rnns_rev]
 
         self.rnns = torch.nn.ModuleList(self.rnns)
+        self.rnns_rev = torch.nn.ModuleList(self.rnns_rev)
         self.decoder = nn.Linear(nhid, ntoken)
 
         if tie_weights:
@@ -50,26 +53,44 @@ class Elmo(nn.Module):
         emb = emb.permute(1,0,2) # (seq_len, bs, emb_size)
 
         raw_output = emb
+        raw_output_rev = emb
+
         new_hidden = []
+        new_hidden_rev = []
         raw_outputs = []
+        raw_outputs_rev = []
         outputs = []
+        outputs_rev = []
+        
         for l, _ in enumerate(self.rnns):
             # current_input = raw_output
             raw_output = nn.utils.rnn.pack_padded_sequence(raw_output, seq_lengths)
             packed_output, new_h = self.rnns[l](raw_output)
             raw_output, _ = nn.utils.rnn.pad_packed_sequence(packed_output) # (seq_len, bs, hid)
 
+            raw_output_rev = nn.utils.rnn.pack_padded_sequence(raw_output_rev, seq_lengths)
+            packed_output_rev, new_h_rev = self.rnns_rev[l](raw_output_rev)
+            raw_output_rev, _ = nn.utils.rnn.pad_packed_sequence(packed_output_rev) # (seq_len, bs, hid*2)
+            raw_output_rev = raw_output_rev[:, :, raw_output_rev.size(-1)//2:] # (seq_len, bs, hid) - take the backwards half of output 
+
             new_hidden.append(new_h)
+            new_hidden_rev.append(new_h_rev)
+
             raw_outputs.append(raw_output)
+            raw_outputs_rev.append(raw_output_rev)
 
             if l != self.nlayers - 1:
                 raw_output = self.lockdrop(raw_output, self.dropouth)
                 outputs.append(raw_output)
+                raw_output_rev = self.lockdrop(raw_output_rev, self.dropouth)
+                outputs_rev.append(raw_output_rev)
 
         hidden = new_hidden
+        hidden_rev = new_hidden_rev
 
         output = self.lockdrop(raw_output, self.dropout)
         outputs.append(output)
+        output_rev = self.lockdrop(raw_output_rev, self.dropout)
+        outputs_rev.append(output_rev)
         
-        return output, hidden, raw_outputs, outputs, emb
-
+        return (output, output_rev), (hidden, hidden_rev), (raw_outputs, raw_outputs_rev), (outputs, outputs_rev), (emb, emb)
