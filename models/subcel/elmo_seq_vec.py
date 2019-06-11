@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import reverse_padded_sequence, rename_state_dict_keys
+from utils import reverse_padded_sequence, rename_state_dict_keys, length_to_mask
 from model_utils.attention import Attention, MultiStepAttention
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
@@ -63,7 +63,10 @@ class Model(nn.Module):
         ### End Elmo 
         
         model_input = torch.cat(((elmo_hid[0] + elmo_hid[1]), (elmo_hid_rev[0] + elmo_hid_rev[1])), dim=2) #(seq_len, bs, 2560)
-        model_input = model_input.mean(0) # (bs, 2560)
+        mask = length_to_mask(seq_lengths).unsqueeze(2) # (bs, seq_len, 1)
+        model_input = model_input.permute(1,0,2) * mask #(bs, seq_len, 2560)
+        model_input = model_input.sum(1) / mask.sum(1) # (bs, 2560)
+
 
         output = self.bn(self.relu(self.drop(self.linear(model_input))))
 
