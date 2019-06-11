@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torchcrf import CRF
+from models.crf_layer import CRF
 
 class SeqPred(nn.Module):
     def __init__(self, input_size, num_units_l1, num_units_lstm, num_units_l2, number_outputs, crf_on):
@@ -20,7 +20,7 @@ class SeqPred(nn.Module):
         self.label = nn.Linear(num_units_l2, number_outputs)
 
         if crf_on:
-            self.crf = CRF(num_tags=number_outputs)
+            self.crf = CRF(num_tags=number_outputs).double()
 
         self.init_weights()
 

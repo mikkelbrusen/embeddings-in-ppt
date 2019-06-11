@@ -12,7 +12,7 @@ from models.seqpred_model import SeqPred
 crf_on = True
 is_cb513 = True
 clip_norm = 1
-batch_size = 91
+batch_size = 64
 num_epochs = 400
 lr = 1e-3
 #Model setup
@@ -51,12 +51,13 @@ def evaluate(crf_on, is_test):
                 #seq_lengths ...
         
         if crf_on:
-            output = output.permute(1,0,2)
+            output = output.double().permute(1,0,2)
             targets = targets.permute(1,0)
-            mask_byte = mask_byte.permute(1,0) 
+            mask_byte = mask_byte.permute(1,0)
+            #mask_float = mask_float.double()
             # calculate loss
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-
+            #loss = loss / torch.sum(mask_float)
             # calculate accuaracy
             preds_list = model.crf.decode(emissions=output, mask=mask_byte)
             accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
@@ -103,10 +104,12 @@ def train(crf_on, num_batch):
         
         if crf_on:
             # calculate loss
-            output = output.permute(1,0,2)
+            output = output.double().permute(1,0,2)
             targets = targets.permute(1,0)
-            mask_byte = mask_byte.permute(1,0) 
+            mask_byte = mask_byte.permute(1,0)
+            #mask_float = mask_float.double()
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
+            #loss = loss / torch.sum(mask_float)
             loss.backward()
 
             # calculate accuaracy
@@ -114,7 +117,6 @@ def train(crf_on, num_batch):
             accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
 
             torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
-            #torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
         else:
             # calculate loss
             loss = 0
@@ -131,7 +133,6 @@ def train(crf_on, num_batch):
 
             torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
         
-
         optimizer.step()
 
         train_err += loss.item()
@@ -143,10 +144,10 @@ def train(crf_on, num_batch):
 def calculate_accuracy_crf(preds, targets, mask):
     correct = 0
     for i in range(len(preds)):
-        pred = torch.tensor(preds[i]).type(torch.float).to(device)
-        target = targets[i][mask[i]].type(torch.float).to(device)
+        pred = torch.tensor(preds[i]).type(torch.float64).to(device)
+        target = targets[i][mask[i]].type(torch.float64).to(device)
         correct += torch.sum(pred.eq(target))
-    return correct.type(torch.float) / torch.sum(mask.type(torch.float))
+    return correct.type(torch.float64) / torch.sum(mask.type(torch.float64))
 
 def calculate_accuracy(preds, targets, mask):
     preds = preds.argmax(2).type(torch.float)

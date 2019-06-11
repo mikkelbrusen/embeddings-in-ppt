@@ -3,7 +3,7 @@
 #BSUB -q gpuv100
 
 ### -- set the job Name --
-#BSUB -J opti
+#BSUB -J secPred
 
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
