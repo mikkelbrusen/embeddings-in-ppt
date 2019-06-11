@@ -49,7 +49,9 @@ class Elmo(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
 
-    def forward(self, input, input_rev, seq_lengths):
+    def forward(self, input, seq_lengths):
+        input_rev = reverse_padded_sequence(input, seq_lengths, batch_first=True)
+        
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
         emb_rev = embedded_dropout(self.encoder, input_rev, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
 
@@ -77,7 +79,7 @@ class Elmo(nn.Module):
             raw_output_rev, _ = nn.utils.rnn.pad_packed_sequence(packed_output_rev) # (seq_len, bs, hid)
 
             # Reverse it back to normal now so that we don't have to later
-            raw_output_rev = reverse_padded_sequence(raw_output_rev, seq_lengths)
+            #raw_output_rev = reverse_padded_sequence(raw_output_rev, seq_lengths)
 
             new_hidden.append(new_h)
             new_hidden_rev.append(new_h_rev)

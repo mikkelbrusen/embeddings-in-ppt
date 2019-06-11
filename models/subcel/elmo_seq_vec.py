@@ -9,7 +9,7 @@ from utils import reverse_padded_sequence, rename_state_dict_keys, length_to_mas
 from model_utils.attention import Attention, MultiStepAttention
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
-from model_utils.elmo_bi import Elmo
+from model_utils.elmo import Elmo
 
 # This is used for elmo_bi where we use bidirectional LSTMs rather than unidirectional LSTMs on reversed input
 
@@ -47,7 +47,8 @@ class Model(nn.Module):
         with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
             state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
 
-        state_dict = rename_state_dict_keys(state_dict, key_transformation)
+        # Rename statedict if doing elmo_bi
+        #state_dict = rename_state_dict_keys(state_dict, key_transformation)
         self.elmo.load_state_dict(state_dict, strict=False)
 
     def init_weights(self):
@@ -56,7 +57,6 @@ class Model(nn.Module):
         
     def forward(self, inp, seq_lengths):
         #### Elmo 
-        #inp_rev = reverse_padded_sequence(inp, seq_lengths, batch_first=True)
         with torch.no_grad():
             all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
         
@@ -67,7 +67,6 @@ class Model(nn.Module):
         mask = length_to_mask(seq_lengths).unsqueeze(2) # (bs, seq_len, 1)
         model_input = model_input.permute(1,0,2) * mask #(bs, seq_len, 2560)
         model_input = model_input.sum(1) / mask.sum(1) # (bs, 2560)
-
 
         output = self.bn(self.relu(self.drop(self.linear(model_input))))
 
