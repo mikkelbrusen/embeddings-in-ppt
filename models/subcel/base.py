@@ -9,7 +9,7 @@ from torch.autograd import Variable
 
 from datautils.dataloader import tokenize_sequence
 from model_utils.attention import Attention, MultiStepAttention
-from utils import iterate_minibatches, length_to_mask, do_layer_norm, ResultsContainer
+from utils import iterate_minibatches, do_layer_norm, ResultsContainer
 from confusionmatrix import ConfusionMatrix
 from metrics_mc import gorodkin, IC
 

@@ -4,7 +4,7 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 sys.path.insert(0,'..')
-from utils import length_to_mask
+from utils import length_to_negative_mask
 
 class Attention(nn.Module):
   def __init__(self, in_size, att_size):
@@ -17,7 +17,7 @@ class Attention(nn.Module):
     att_hid_align = torch.tanh(att_vector) # [bs, seq_len, att_size]
     att_score = self.linear_att(att_hid_align).squeeze(2) # [bs, seq_len]
     
-    mask = length_to_mask(seq_lengths)
+    mask = length_to_negative_mask(seq_lengths)
     alpha = F.softmax(att_score + mask, dim=1) # [bs, seq_len]
     att = alpha.unsqueeze(2) # [bs, seq_len, 1]
 
@@ -61,7 +61,7 @@ class MultiStepAttention(nn.Module):
       att_vector = att_vector + hid_vector.unsqueeze(dim=1)
       att_hid_align = torch.tanh(att_vector) # [bs, seq_len, att_size]
       att_score = self.linear_att(att_hid_align).squeeze(2) # [bs, seq_len]
-      mask = length_to_mask(seq_lengths)
+      mask = length_to_negative_mask(seq_lengths)
 
       alpha = F.softmax(att_score + mask, dim=1) # [bs, seq_len]
       att = alpha.unsqueeze(2) # [bs, seq_len, 1]
