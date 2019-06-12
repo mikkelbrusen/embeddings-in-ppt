@@ -54,10 +54,10 @@ def evaluate(crf_on, is_test):
             output = output.double().permute(1,0,2)
             targets = targets.permute(1,0)
             mask_byte = mask_byte.permute(1,0)
-            #mask_float = mask_float.double()
+            mask_float = mask_float.double()
             # calculate loss
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-            #loss = loss / torch.sum(mask_float)
+            loss = loss / (torch.sum(mask_float)+1e-12)
             # calculate accuaracy
             preds_list = model.crf.decode(emissions=output, mask=mask_byte)
             accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
@@ -107,9 +107,9 @@ def train(crf_on, num_batch):
             output = output.double().permute(1,0,2)
             targets = targets.permute(1,0)
             mask_byte = mask_byte.permute(1,0)
-            #mask_float = mask_float.double()
+            mask_float = mask_float.double()
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-            #loss = loss / torch.sum(mask_float)
+            loss = loss / (torch.sum(mask_float)+1e-12)
             loss.backward()
 
             # calculate accuaracy
