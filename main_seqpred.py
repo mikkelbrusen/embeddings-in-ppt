@@ -44,23 +44,20 @@ def evaluate(crf_on, is_test):
         mask_byte = Variable(torch.from_numpy(mask).type(torch.ByteTensor)).to(device)
         mask_float = Variable(torch.from_numpy(mask).type(torch.float)).to(device)
         targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
-        num_samples = inp.size(0)
 
         output = model(inp=inp, seq_lengths=seq_lens)
         #outputs = torch.cat(output, axis=0)
                 #seq_lengths ...
         
         if crf_on:
-            output = output.double().permute(1,0,2)
-            targets = targets.permute(1,0)
-            mask_byte = mask_byte.permute(1,0)
+            output = output.double()
             mask_float = mask_float.double()
             # calculate loss
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-            loss = loss / (torch.sum(mask_float)+1e-12)
+            loss = loss / torch.sum(mask_float)
             # calculate accuaracy
             preds_list = model.crf.decode(emissions=output, mask=mask_byte)
-            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
+            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
         else:
             # calculate loss
             loss = 0
@@ -97,24 +94,21 @@ def train(crf_on, num_batch):
         mask_byte = Variable(torch.from_numpy(mask).type(torch.ByteTensor)).to(device)
         mask_float = Variable(torch.from_numpy(mask).type(torch.float)).to(device)
         targets = Variable(torch.from_numpy(targets).type(torch.long)).to(device)
-        num_samples = inp.size(0)
 
         optimizer.zero_grad()
         output = model(inp=inp, seq_lengths=seq_lens)
         
         if crf_on:
             # calculate loss
-            output = output.double().permute(1,0,2)
-            targets = targets.permute(1,0)
-            mask_byte = mask_byte.permute(1,0)
+            output = output.double()
             mask_float = mask_float.double()
             loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-            loss = loss / (torch.sum(mask_float)+1e-12)
+            loss = loss / torch.sum(mask_float)
             loss.backward()
 
             # calculate accuaracy
             preds_list = model.crf.decode(emissions=output, mask=mask_byte)
-            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets.permute(1,0), mask=mask_byte.permute(1,0))
+            accuracy += calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
 
             torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=clip_norm)
         else:

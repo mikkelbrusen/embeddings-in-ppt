@@ -20,7 +20,7 @@ class SeqPred(nn.Module):
         self.label = nn.Linear(num_units_l2, number_outputs)
 
         if crf_on:
-            self.crf = CRF(num_tags=number_outputs).double()
+            self.crf = CRF(num_tags=number_outputs, batch_first=True).double()
 
         self.init_weights()
 
@@ -48,8 +48,7 @@ class SeqPred(nn.Module):
                         param.data.zero_()
 
     def forward(self, inp, seq_lengths):
-        x = self.densel1(inp)#.permute(0,2,1)
-        #x = self.bn1(x).permute(0,2,1)
+        x = self.densel1(inp)
         x = self.relu(x)
 
         x = torch.cat((inp,x), dim=2)
