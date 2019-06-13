@@ -8,12 +8,12 @@ import time
 sys.path.insert(0,'..')
 import datautils.data as data
 from models.seqpred_model import SeqPred
-
+seed = 123456
 crf_on = True
 is_cb513 = True
 clip_norm = 1
 batch_size = 64
-num_epochs = 400
+num_epochs = 15
 lr = 1e-3
 #Model setup
 input_size = 42
@@ -24,7 +24,12 @@ number_outputs = 8
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate(crf_on, is_test):
+torch.manual_seed(seed)
+np.random.seed(seed=int(seed))
+if torch.cuda.is_available():
+  torch.cuda.manual_seed(seed)
+
+def evaluate(model, crf_on, is_test):
     accuracy = 0
     model.eval()
     with torch.no_grad():
@@ -73,7 +78,7 @@ def evaluate(crf_on, is_test):
         return loss, accuracy
 
 
-def train(crf_on, num_batch):
+def train(model, crf_on, num_batch):
     train_err = 0
     total_samples = 0
     accuracy = 0
@@ -181,12 +186,14 @@ print("Model: ", model)
 best_val_acc = 0.0
 for epoch in range(num_epochs):
     start_time = time.time()
-    train_loss, train_accuracy = train(crf_on=crf_on, num_batch=num_batch)
-    val_loss, val_accuracy = evaluate(crf_on=crf_on, is_test=False)
+    train_loss, train_accuracy = train(model=model, crf_on=crf_on, num_batch=num_batch)
+    val_loss, val_accuracy = evaluate(model=model, crf_on=crf_on, is_test=False)
+    test_loss, test_accuracy = evaluate(model=model, crf_on=crf_on, is_test=True)
     if val_accuracy > best_val_acc:
         best_val_acc = val_accuracy
         idx = epoch
         best_model = model
+        print("Saving new best model: ", epoch)
 
 
     print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, num_epochs, time.time() - start_time), '-' * 22 )
@@ -195,6 +202,8 @@ for epoch in range(num_epochs):
     ' |'.format(train_loss, train_accuracy*100))
     print('| Valid | loss {:.4f} | acc {:.2f}%' 
     ' |'.format(val_loss, val_accuracy*100))
+    print('| Test | loss {:.4f} | acc {:.2f}%' 
+    ' |'.format(test_loss, test_accuracy*100))
     print('-' * 79)
     sys.stdout.flush()
 
@@ -203,10 +212,11 @@ print('| Valid | epoch {:3d} | acc {:.2f}% '
             ' |'.format(idx, best_val_acc*100))
 print('-' * 79)
 
-#test
-model = best_model
-test_loss, test_accuracy = evaluate(crf_on=crf_on, is_test=True)
+val_loss, val_accuracy = evaluate(model=best_model, crf_on=crf_on, is_test=False)
+test_loss, test_accuracy = evaluate(model=best_model, crf_on=crf_on, is_test=True)
 
+print('| Valid | loss {:.4f} | acc {:.2f}%' 
+    ' |'.format(val_loss, val_accuracy*100))
 print('| Test | acc {:.2f}% ' 
             ' |'.format(test_accuracy*100))
 print('-' * 79)
