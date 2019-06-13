@@ -21,10 +21,11 @@ def computeAccuracy(targets, preds):
             hits += 1
     return hits/len(targets)*100
 
-print("Uniform Model")
-for i in range(1,5):
-    train_index = np.where(partition != i)
-    y_tr = y_train[train_index].astype(np.int32)
-    print("Partition: ", i)
-    preds = getUniform(len(y_tr))
-    print("Accuracy: ", computeAccuracy(y_tr, preds))
+if __name__ == "__main__":
+    print("Uniform Model")
+    for i in range(1,5):
+        train_index = np.where(partition != i)
+        y_tr = y_train[train_index].astype(np.int32)
+        print("Partition: ", i)
+        preds = getUniform(len(y_tr))
+        print("Accuracy: ", computeAccuracy(y_tr, preds))
