@@ -45,22 +45,22 @@ class Model(nn.Module):
     torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
     
     for m in self.modules():
-        if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
-          for name, param in m.named_parameters():
-            if 'weight_ih' in name:
-                torch.nn.init.orthogonal_(param.data, gain=1)
-            elif 'weight_hh' in name:
-                torch.nn.init.orthogonal_(param.data, gain=1)
-            elif 'bias_ih' in name:
-              param.data.zero_()
-            elif 'bias_hh' in name:
-              param.data.zero_()
-        elif type(m) in [nn.Conv1d]:
-          for name, param in m.named_parameters():
-            if 'weight' in name:
-              torch.nn.init.orthogonal_(param.data, gain=math.sqrt(2))           
-            if 'bias' in name:
-              param.data.zero_()
+      if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
+        for name, param in m.named_parameters():
+          if 'weight_ih' in name:
+            torch.nn.init.orthogonal_(param.data, gain=1)
+          elif 'weight_hh' in name:
+            torch.nn.init.orthogonal_(param.data, gain=1)
+          elif 'bias_ih' in name:
+            param.data.zero_()
+          elif 'bias_hh' in name:
+            param.data.zero_()
+      elif type(m) in [nn.Conv1d]:
+        for name, param in m.named_parameters():
+          if 'weight' in name:
+            torch.nn.init.orthogonal_(param.data, gain=math.sqrt(2))           
+          if 'bias' in name:
+            param.data.zero_()
     
   def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len)
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)

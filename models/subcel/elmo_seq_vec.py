@@ -9,19 +9,7 @@ from utils import reverse_padded_sequence, rename_state_dict_keys, length_to_mas
 from model_utils.attention import Attention, MultiStepAttention
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
-from model_utils.elmo import Elmo
-
-# This is used for elmo_bi where we use bidirectional LSTMs rather than unidirectional LSTMs on reversed input
-
-def key_transformation(old_key: str):
-    if "rnns_rev" in old_key:
-        old_key = "rnns" + old_key.split("rnns_rev")[1] + "_reverse"
-
-    if "_raw_reverse" in old_key:
-        old_key = old_key.split("_raw_reverse")[0] + "_reverse_raw"
-
-    return old_key
-
+from model_utils.elmo_bi import Elmo, key_transformation
 
 class Config(BaseConfig):
     def __init__(self, args):
@@ -33,7 +21,6 @@ class Model(nn.Module):
         super().__init__()
         self.args = args
         self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-
         self.linear = nn.Linear(2560, 32)
         self.drop = nn.Dropout(0.25)
         self.relu = nn.ReLU()
@@ -46,9 +33,8 @@ class Model(nn.Module):
         # load pretrained elmo
         with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
             state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-
         # Rename statedict if doing elmo_bi
-        #state_dict = rename_state_dict_keys(state_dict, key_transformation)
+        state_dict = rename_state_dict_keys(state_dict, key_transformation)
         self.elmo.load_state_dict(state_dict, strict=False)
 
     def init_weights(self):

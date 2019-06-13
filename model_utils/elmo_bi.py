@@ -5,6 +5,16 @@ from pretrained_models.elmo.weight_drop import WeightDrop
 from pretrained_models.elmo.embed_regularize import embedded_dropout
 from pretrained_models.elmo.locked_dropout import LockedDropout
 
+# Used in a configuration by rename_state_dict_keys function to adapt from 2xlstm to 1xlstm 1xbilstm
+def key_transformation(old_key: str):
+    if "rnns_rev" in old_key:
+        old_key = old_key + "_reverse"
+
+    if "_raw_reverse" in old_key:
+        old_key = old_key.split("_raw_reverse")[0] + "_reverse_raw"
+
+    return old_key
+
 class Elmo(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 

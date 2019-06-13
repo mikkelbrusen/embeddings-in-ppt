@@ -78,9 +78,6 @@ class Elmo(nn.Module):
             packed_output_rev, new_h_rev = self.rnns_rev[l](raw_output_rev)
             raw_output_rev, _ = nn.utils.rnn.pad_packed_sequence(packed_output_rev) # (seq_len, bs, hid)
 
-            # Reverse it back to normal now so that we don't have to later
-            #raw_output_rev = reverse_padded_sequence(raw_output_rev, seq_lengths)
-
             new_hidden.append(new_h)
             new_hidden_rev.append(new_h_rev)
 

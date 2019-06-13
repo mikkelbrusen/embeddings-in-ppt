@@ -4,11 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import reverse_padded_sequence
+from utils import rename_state_dict_keys
 from model_utils.attention import Attention, MultiStepAttention
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
-from model_utils.elmo import Elmo
+from model_utils.elmo_bi import Elmo, key_transformation
 
 class Config(BaseConfig):
   def __init__(self, args):
@@ -32,16 +32,15 @@ class Model(BaseModel):
 
     # load pretrained elmo
     with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
-        state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    self.elmo.load_state_dict(state_dict)
+      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+    state_dict = rename_state_dict_keys(state_dict, key_transformation)
+    self.elmo.load_state_dict(state_dict, strict=False)
 
   def forward(self, inp, seq_lengths):
     #### Elmo 
-    inp_rev = reverse_padded_sequence(inp, seq_lengths, batch_first=True)
     with torch.no_grad():
-      all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, input_rev=inp_rev, seq_lengths=seq_lengths)
+      (elmo_hid, elmo_hid_rev), last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
     
-    (elmo_hid, elmo_hid_rev) = all_hid # ((seq_len, bs, emb_size),(seq_len, bs, emb_size))
     elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
     elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, emb_size) 
     
@@ -64,7 +63,7 @@ class Model(BaseModel):
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
     ### Concat 320 hidden layer to BiLSTM
-    output = torch.cat((output, elmo_hid, elmo_hid_rev),dim=2) # (batch_size, seq_len, hidden_size*2+320)
+    output = torch.cat((output, elmo_hid, elmo_hid_rev),dim=2) # (batch_size, seq_len, hidden_size*2+320*2)
     ### End Concat
   
     attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
