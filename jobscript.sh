@@ -3,7 +3,7 @@
 #BSUB -q gpuv100
 
 ### -- set the job Name --
-#BSUB -J secPred
+#BSUB -J job
 
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
@@ -30,5 +30,5 @@ module load cuda/9.1
 export PYTHONPATH=
 source ~/stdpy3/bin/activate
 
-python3 main_seqpred.py 
+python3 main.py secpred --model secPred --batch_size 64 --epochs 15 --learning_rate 1e-3 --clip 1 --cb513 --do_testing --crf
 
