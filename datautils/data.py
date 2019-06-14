@@ -2,6 +2,7 @@ import numpy as np
 import os.path
 import subprocess
 import sys
+import copy
 sys.path.insert(0,'..')
 import datautils.casphandle as casphandle
 import utils
@@ -9,6 +10,7 @@ import utils
 TRAIN_PATH_CULLPDB = 'data/SecPred/train_nf.npy'
 TRAIN_PATH_CB513 = 'data/SecPred/train.npy'
 TEST_PATH = 'data/SecPred/test.npy'
+SAVE_DATASETS = True
 ##### TRAIN DATA #####
 
 def get_train_cb513(seq_len=None):
@@ -20,6 +22,7 @@ def get_train_cb513(seq_len=None):
   print("Loading train data ...")
   X_in = np.load(TRAIN_PATH_CB513)
   X = np.reshape(X_in,(5534,700,57))
+  Y = copy.deepcopy(X)
   del X_in
   X = X[:,:,:]
   labels = X[:,:,22:30]
@@ -28,6 +31,7 @@ def get_train_cb513(seq_len=None):
   a = np.arange(0,21)
   b = np.arange(35,56)
   c = np.hstack((a,b))
+
   X = X[:,:,c]
 
   
@@ -74,6 +78,10 @@ def get_train_cb513(seq_len=None):
     mask_valid = mask_valid[:, :seq_len]
   len_train = np.sum(mask_train, axis=1)
   len_valid = np.sum(mask_valid, axis=1)
+
+  if SAVE_DATASETS:
+    save_raw_dataset(data=Y[:,:,np.arange(0,22)], Y=Y, masks=mask, targets=labels, is_test=False)
+
   return X_train, X_valid, labels_train, labels_valid, mask_train, \
       mask_valid, len_train, len_valid, num_seq_train
 
@@ -86,6 +94,7 @@ def get_train_cullpdb(seq_len=None):
   print("Loading train data ...")
   X_in = np.load(TRAIN_PATH_CULLPDB)
   X = np.reshape(X_in,(6133,700,57))
+  Y = copy.deepcopy(X)
   del X_in
   X = X[:,:,:]
   labels = X[:,:,22:30]
@@ -94,6 +103,7 @@ def get_train_cullpdb(seq_len=None):
   a = np.arange(0,21)
   b = np.arange(35,56)
   c = np.hstack((a,b))
+
   X = X[:,:,c]
 
   # getting meta
@@ -135,6 +145,10 @@ def get_train_cullpdb(seq_len=None):
   len_train = np.sum(mask_train, axis=1)
   len_valid = np.sum(mask_valid, axis=1)
   len_test = np.sum(mask_test, axis=1)
+
+  if SAVE_DATASETS:
+    save_raw_dataset(data=Y[:,:,np.arange(0,22)], Y=Y, masks=mask, targets=labels, is_test=False, is_cullpdb=True)
+
   return X_train, X_valid, X_test, labels_train, labels_valid, labels_test, mask_train, \
       mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train
 #del split
@@ -146,6 +160,7 @@ def get_test(seq_len=None):
   print("Loading test data ...")
   X_test_in = np.load(TEST_PATH)
   X_test = np.reshape(X_test_in,(514,700,57))
+  Y_test = copy.deepcopy(X_test)
   del X_test_in
   X_test = X_test[:,:,:].astype("float32")
   labels_test = X_test[:,:,22:30].astype('int32')
@@ -154,6 +169,7 @@ def get_test(seq_len=None):
   a = np.arange(0,21)
   b = np.arange(35,56)
   c = np.hstack((a,b))
+    
   X_test = X_test[:,:,c]
 
   # getting meta
@@ -172,7 +188,34 @@ def get_test(seq_len=None):
   labels_test = labels_new
 
   len_test = np.sum(mask_test, axis=1)
+
+  if SAVE_DATASETS:
+    save_raw_dataset(data=Y_test[:,:,np.arange(0,22)], Y=Y_test, masks=mask_test, targets=labels_test, seq_lengths=len_test, is_test=True)
+
   return X_test, mask_test, labels_test, num_seq_test, len_test
+
+def save_raw_dataset(data, Y, masks, targets, is_test, seq_lengths=None, is_cullpdb=False):
+  datadict = {0:1, 1:19, 2:3, 3:7, 4:12, 5:8, 6:5, 7:18, 8:15, 9:0, 10:6, 11:2, 12:17, 13:10, 14:11, 15:13, 16:14, 17:9, 18:4, 19:16, 20:1, 21:20}
+  datargmax = np.argmax(data, axis=2)
+  for i in range(len(data)):
+    for j in range(len(data[0])):
+      if datargmax[i][j] == 20:
+        Y[i][j][np.arange(0,22)] = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+      datargmax[i][j] = datadict[datargmax[i][j]]
+  if is_cullpdb:
+    np.savez("data/SecPred/train_cullpdb_raw.npy", X_train=datargmax, t_train=targets, mask_train=masks)
+    np.save("data/SecPred/train_cullpdb_no_x.npy", Y)
+  else:
+    if is_test:
+      np.savez("data/SecPred/test_raw.npy", X_test=datargmax, t_test=targets, mask_test=masks, length_test=seq_lengths)
+      np.save("data/SecPred/test_no_x.npy", Y)
+    else:
+      np.savez("data/SecPred/train_raw.npz", X_train=datargmax, t_train=targets, mask_train=masks)
+      np.save("data/SecPred/train_no_x.npy", Y)
+      
+
+  
+
 
 def get_casp(seq_len=None):
   X_casp, t_casp, mask_casp = casphandle.get_data()

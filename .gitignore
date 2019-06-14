@@ -110,3 +110,4 @@ data/DeepLoc/test.npz
 data/DeepLoc/train.npz
 *.pt
 *.npy
+data/SecPred/train_raw.npz
