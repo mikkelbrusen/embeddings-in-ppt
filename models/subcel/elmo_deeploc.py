@@ -6,8 +6,8 @@ from torch.autograd import Variable
 
 from utils import rename_state_dict_keys
 from model_utils.attention import Attention, MultiStepAttention
-from models.subcel.base import Model as BaseModel
-from models.subcel.base import Config as BaseConfig
+from models.subcel.base_raw import Model as BaseModel
+from models.subcel.base_raw import Config as BaseConfig
 from model_utils.elmo_bi import Elmo, key_transformation
 
 class Config(BaseConfig):
@@ -43,7 +43,6 @@ class Model(BaseModel):
     
     elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
     elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, emb_size) 
-    
     ### End Elmo 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
