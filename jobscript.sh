@@ -3,7 +3,7 @@
 #BSUB -q gpuv100
 
 ### -- set the job Name --
-#BSUB -J elmoSon
+#BSUB -J elmoHid
 
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
@@ -30,4 +30,4 @@ module load cuda/9.1
 export PYTHONPATH=
 source ~/stdpy3/bin/activate
 
-python3 main.py secpred --model elmo_soenderby --trainset data/SecPred/train_raw.npz --testset data/SecPred/test_raw.npz --batch_size 128 --epochs 400 --learning_rate 1e-3 --clip 0.5 --optimizer adam --input_size 640 --n_l1 500 --n_rnn_hid 500 --cb513 --raw --do_testing
+python3 main.py secpred --model elmo_soenderby_all_hidden --trainset data/SecPred/train_raw.npz --testset data/SecPred/test_raw.npz --batch_size 128 --epochs 400 --learning_rate 1e-3 --clip 0.5 --optimizer adam --input_size 2560 --n_l1 500 --n_rnn_hid 500 --cb513 --raw --do_testing
