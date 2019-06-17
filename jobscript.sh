@@ -30,5 +30,4 @@ module load cuda/9.1
 export PYTHONPATH=
 source ~/stdpy3/bin/activate
 
-python3 main.py secpred --model secPred --batch_size 64 --epochs 15 --learning_rate 1e-3 --clip 1 --cb513 --do_testing --crf
-
+python3 main.py secpred --model soenderby_exact --trainset data/SecPred/train_no_x.npy --testset data/SecPred/test_no_x.npy --batch_size 128 --epochs 400 --learning_rate 1e-3 --clip 0.5 --optimizer adam --n_l1 500 --n_rnn_hid 500 --cb513 --do_testing
