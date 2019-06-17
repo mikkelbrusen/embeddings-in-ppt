@@ -7,20 +7,51 @@ sys.path.insert(0,'..')
 import datautils.casphandle as casphandle
 import utils
 
-TRAIN_PATH_CULLPDB = 'data/SecPred/train_nf.npy'
-TRAIN_PATH_CB513 = 'data/SecPred/train.npy'
-TEST_PATH = 'data/SecPred/test.npy'
-SAVE_DATASETS = True
+SAVE_DATASETS = False
 ##### TRAIN DATA #####
 
-def get_train_cb513(seq_len=None):
-  if not os.path.isfile(TRAIN_PATH_CB513):
-    print("Train path is not downloaded ...")
-    subprocess.call("./download_train.sh", shell=True)
-  else:
-    print("Train path is downloaded ...")
+def get_raw_train_cb513(data_path):
   print("Loading train data ...")
-  X_in = np.load(TRAIN_PATH_CB513)
+  X_in = np.load(data_path)
+  X = X_in['X_train']
+  labels = X_in['t_train']
+  mask = X_in['mask_train']
+  del X_in
+
+  # getting meta
+  num_seqs = np.size(X,0)
+  seq_names = np.arange(0,num_seqs)
+
+  X_train = X[seq_names[0:5278]]
+  X_valid = X[seq_names[5278:5534]]
+  labels_train = labels[seq_names[0:5278]]
+  labels_valid = labels[seq_names[5278:5534]]
+  mask_train = mask[seq_names[0:5278]]
+  mask_valid = mask[seq_names[5278:5534]]
+  num_seq_train = np.size(X_train,0)
+  num_seq_valid = np.size(X_valid,0)
+  len_train = np.sum(mask_train, axis=1)
+  len_valid = np.sum(mask_valid, axis=1)
+
+  return X_train, X_valid, labels_train, labels_valid, mask_train, \
+      mask_valid, len_train, len_valid, num_seq_train
+
+def get_raw_test(data_path):
+  print("Loading test data ...")
+  X_test_in = np.load(data_path)
+  X_test =  X_test_in['X_test']
+  labels_test = X_test_in['t_test']
+  mask_test = X_test_in['mask_test']
+  del X_test_in
+
+  num_seq_test = np.size(X_test,0)
+  len_test = np.sum(mask_test, axis=1)
+
+  return X_test, mask_test, labels_test, num_seq_test, len_test
+
+def get_train_cb513(data_path, seq_len=None):
+  print("Loading train data ...")
+  X_in = np.load(data_path)
   X = np.reshape(X_in,(5534,700,57))
   Y = copy.deepcopy(X)
   del X_in
@@ -33,8 +64,6 @@ def get_train_cb513(seq_len=None):
   c = np.hstack((a,b))
 
   X = X[:,:,c]
-
-  
 
   # getting meta
   num_seqs = np.size(X,0)
@@ -85,14 +114,9 @@ def get_train_cb513(seq_len=None):
   return X_train, X_valid, labels_train, labels_valid, mask_train, \
       mask_valid, len_train, len_valid, num_seq_train
 
-def get_train_cullpdb(seq_len=None):
-  if not os.path.isfile(TRAIN_PATH_CULLPDB):
-    print("Train path is not downloaded ...")
-    subprocess.call("./download_train.sh", shell=True)
-  else:
-    print("Train path is downloaded ...")
+def get_train_cullpdb(data_path, seq_len=None):
   print("Loading train data ...")
-  X_in = np.load(TRAIN_PATH_CULLPDB)
+  X_in = np.load(data_path)
   X = np.reshape(X_in,(6133,700,57))
   Y = copy.deepcopy(X)
   del X_in
@@ -152,13 +176,11 @@ def get_train_cullpdb(seq_len=None):
   return X_train, X_valid, X_test, labels_train, labels_valid, labels_test, mask_train, \
       mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train
 #del split
-##### TEST DATA #####
 
-def get_test(seq_len=None):
-  if not os.path.isfile(TEST_PATH):
-    subprocess.call("./download_test.sh", shell=True)
+##### TEST DATA #####
+def get_test(data_path, seq_len=None):
   print("Loading test data ...")
-  X_test_in = np.load(TEST_PATH)
+  X_test_in = np.load(data_path)
   X_test = np.reshape(X_test_in,(514,700,57))
   Y_test = copy.deepcopy(X_test)
   del X_test_in
@@ -190,11 +212,11 @@ def get_test(seq_len=None):
   len_test = np.sum(mask_test, axis=1)
 
   if SAVE_DATASETS:
-    save_raw_dataset(data=Y_test[:,:,np.arange(0,22)], Y=Y_test, masks=mask_test, targets=labels_test, seq_lengths=len_test, is_test=True)
+    save_raw_dataset(data=Y_test[:,:,np.arange(0,22)], Y=Y_test, masks=mask_test, targets=labels_test, is_test=True)
 
   return X_test, mask_test, labels_test, num_seq_test, len_test
 
-def save_raw_dataset(data, Y, masks, targets, is_test, seq_lengths=None, is_cullpdb=False):
+def save_raw_dataset(data, Y, masks, targets, is_test, is_cullpdb=False):
   datadict = {0:1, 1:19, 2:3, 3:7, 4:12, 5:8, 6:5, 7:18, 8:15, 9:0, 10:6, 11:2, 12:17, 13:10, 14:11, 15:13, 16:14, 17:9, 18:4, 19:16, 20:1, 21:20}
   datargmax = np.argmax(data, axis=2)
   for i in range(len(data)):
@@ -203,19 +225,15 @@ def save_raw_dataset(data, Y, masks, targets, is_test, seq_lengths=None, is_cull
         Y[i][j][np.arange(0,22)] = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
       datargmax[i][j] = datadict[datargmax[i][j]]
   if is_cullpdb:
-    np.savez("data/SecPred/train_cullpdb_raw.npy", X_train=datargmax, t_train=targets, mask_train=masks)
-    np.save("data/SecPred/train_cullpdb_no_x.npy", Y)
+    np.savez("data/SecPred/train_cullpdb_raw", X_train=datargmax, t_train=targets, mask_train=masks)
+    np.save("data/SecPred/train_cullpdb_no_x", Y)
   else:
     if is_test:
-      np.savez("data/SecPred/test_raw.npy", X_test=datargmax, t_test=targets, mask_test=masks, length_test=seq_lengths)
-      np.save("data/SecPred/test_no_x.npy", Y)
+      np.savez("data/SecPred/test_raw", X_test=datargmax, t_test=targets, mask_test=masks)
+      np.save("data/SecPred/test_no_x", Y)
     else:
-      np.savez("data/SecPred/train_raw.npz", X_train=datargmax, t_train=targets, mask_train=masks)
-      np.save("data/SecPred/train_no_x.npy", Y)
-      
-
-  
-
+      np.savez("data/SecPred/train_raw", X_train=datargmax, t_train=targets, mask_train=masks)
+      np.save("data/SecPred/train_no_x", Y)
 
 def get_casp(seq_len=None):
   X_casp, t_casp, mask_casp = casphandle.get_data()
@@ -243,53 +261,57 @@ def get_casp(seq_len=None):
   return X_casp, mask_casp, t_casp, len_casp
 
 
-def load_data(is_cb513):
-  if is_cb513:
+def load_data(is_cb513, is_raw, train_path, test_path):
+  if is_raw:
     X_train, X_valid, t_train, t_valid, mask_train, \
-    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513()
-    X_test, mask_test, t_test, num_seq_test, len_test = get_test()
+    mask_valid, len_train, len_valid, num_seq_train = get_raw_train_cb513(train_path)
+    X_test, mask_test, t_test, num_seq_test, len_test = get_raw_test(test_path)
+  elif is_cb513:
+    X_train, X_valid, t_train, t_valid, mask_train, \
+    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513(train_path)
+    X_test, mask_test, t_test, num_seq_test, len_test = get_test(test_path)
   else:
     X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
-    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train_cullpdb()
+    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train_cullpdb(train_path)
 
-  X_casp, mask_casp, t_casp, len_casp = get_casp()
+  #X_casp, mask_casp, t_casp, len_casp = get_casp()
 
   dict_out = dict()
   dict_out['X_train'] = X_train
   dict_out['X_valid'] = X_valid
   dict_out['X_test'] = X_test
-  dict_out['X_casp'] = X_casp
+  #dict_out['X_casp'] = X_casp
   dict_out['t_train'] = t_train
   dict_out['t_valid'] = t_valid
   dict_out['t_test'] = t_test
-  dict_out['t_casp'] = t_casp
+  #dict_out['t_casp'] = t_casp
   dict_out['mask_train'] = mask_train
   dict_out['mask_valid'] = mask_valid
   dict_out['mask_test'] = mask_test
-  dict_out['mask_casp'] = mask_casp
+  #dict_out['mask_casp'] = mask_casp
   dict_out['length_train'] = len_train
   dict_out['length_valid'] = len_valid
   dict_out['length_test'] = len_test
-  dict_out['length_casp'] = len_casp
+  #dict_out['length_casp'] = len_casp
   return dict_out, num_seq_train
 
 def chop_sequences(X, t, mask, length):
     max_len = np.max(length)
     return X[:, :max_len], t[:, :max_len], mask[:, :max_len]
 
-
 class gen_data():
-    def __init__(self, batch_size, is_cb513, data_fn=load_data):
+    def __init__(self, batch_size, is_cb513, is_raw, train_path, test_path, data_fn=load_data):
         print("initializing data generator!")
         #self._num_iterations = num_iterations
         self._batch_size = batch_size
-        self._data_dict, self._num_seq_train = load_data(is_cb513)
+        self._data_dict, self._num_seq_train = load_data(is_cb513, is_raw, train_path, test_path)
         self._seq_len = 700
         print(self._data_dict.keys())
         if 'X_train' in self._data_dict.keys():
             if 't_train' in self._data_dict.keys():
                 print("Training is found!")
                 self._idcs_train = list(range(self._data_dict['X_train'].shape[0]))
+                self._num_features = self._data_dict['X_train'].shape[-1]
                 self._num_features = self._data_dict['X_train'].shape[-1]
         if 'X_valid' in self._data_dict.keys():
             if 't_valid' in self._data_dict.keys():
@@ -307,9 +329,12 @@ class gen_data():
     def _shuffle_train(self):
         np.random.shuffle(self._idcs_train)
 
-    def _batch_init(self):
+    def _batch_init(self, is_raw):
         batch_holder = dict()
-        batch_holder["X"] = np.zeros((self._batch_size, self._seq_len, self._num_features), dtype="float32")
+        if is_raw:
+          batch_holder["X"] = np.zeros((self._batch_size, self._seq_len), dtype="float32")
+        else:
+          batch_holder["X"] = np.zeros((self._batch_size, self._seq_len, self._num_features), dtype="float32")
         batch_holder["t"] = np.zeros((self._batch_size, self._seq_len), dtype="int32")
         batch_holder["mask"] = np.zeros((self._batch_size, self._seq_len), dtype="float32")
         batch_holder["length"] = np.zeros((self._batch_size,), dtype="int32")
@@ -327,8 +352,8 @@ class gen_data():
             batch['mask'] = mask[:i]
         return batch
 
-    def gen_valid(self):
-        batch = self._batch_init()
+    def gen_valid(self, is_raw):
+        batch = self._batch_init(is_raw)
         i = 0
         for idx in self._idcs_valid:
             batch['X'][i] = self._data_dict['X_valid'][idx]
@@ -338,13 +363,13 @@ class gen_data():
             i += 1
             if i >= self._batch_size:
                 yield self._chop_batch(batch, i)
-                batch = self._batch_init()
+                batch = self._batch_init(is_raw)
                 i = 0
         if i != 0:
             yield self._chop_batch(batch, i)
 
-    def gen_test(self):
-        batch = self._batch_init()
+    def gen_test(self, is_raw):
+        batch = self._batch_init(is_raw)
         i = 0
         for idx in self._idcs_test[:512]:
             batch['X'][i] = self._data_dict['X_test'][idx]
@@ -354,15 +379,15 @@ class gen_data():
             i += 1
             if i >= self._batch_size:
                 yield self._chop_batch(batch, i)
-                batch = self._batch_init()
+                batch = self._batch_init(is_raw)
                 i = 0
         if i != 0:
             print(i)
             print(self._chop_batch(batch, i)['X'].shape)
             yield self._chop_batch(batch, i)
 
-    def gen_casp(self):
-        batch = self._batch_init()
+    def gen_casp(self, is_raw):
+        batch = self._batch_init(is_raw)
         i = 0
         for idx in self._idcs_casp:
             batch['X'][i] = self._data_dict['X_casp'][idx]
@@ -372,15 +397,15 @@ class gen_data():
             i += 1
             if i >= self._batch_size:
                 yield self._chop_batch(batch, i), i
-                batch = self._batch_init()
+                batch = self._batch_init(is_raw)
                 i = 0
         if i != 0:
             print(i)
             print(self._chop_batch(batch, i)['X'].shape)
             yield self._chop_batch(batch, i), i
 
-    def gen_train(self):
-        batch = self._batch_init()
+    def gen_train(self, is_raw):
+        batch = self._batch_init(is_raw)
         iteration = 0
         i = 0
         while True:
@@ -394,7 +419,7 @@ class gen_data():
                 i += 1
                 if i >= self._batch_size:
                     yield self._chop_batch(batch)
-                    batch = self._batch_init()
+                    batch = self._batch_init(is_raw)
                     i = 0
                     iteration += 1
 #                    if iteration >= self._num_iterations:
