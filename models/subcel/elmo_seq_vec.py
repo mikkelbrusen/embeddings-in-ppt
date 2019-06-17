@@ -7,8 +7,8 @@ from torch.autograd import Variable
 
 from utils import reverse_padded_sequence, rename_state_dict_keys, length_to_mask
 from model_utils.attention import Attention, MultiStepAttention
-from models.subcel.base import Model as BaseModel
-from models.subcel.base import Config as BaseConfig
+from models.subcel.base_raw import Model as BaseModel
+from models.subcel.base_raw import Config as BaseConfig
 from model_utils.elmo_bi import Elmo, key_transformation
 
 class Config(BaseConfig):
