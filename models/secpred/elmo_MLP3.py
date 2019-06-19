@@ -25,6 +25,7 @@ class Model(BaseModel):
     self.densel3 = nn.Linear(self.args.n_l2, self.args.n_l2)
     self.label = nn.Linear(self.args.n_l2, self.args.n_outputs)
     self.relu = nn.ReLU()
+    self.drop = nn.Dropout(0.5)
 
     if self.args.crf:
         self.crf = CRF(num_tags=self.args.n_outputs, batch_first=True).double()
@@ -62,8 +63,11 @@ class Model(BaseModel):
     emb = torch.cat(((elmo_hid[0] + elmo_hid[1]), (elmo_hid_rev[0] + elmo_hid_rev[1])), dim=2).permute(1,0,2) #(seq_len, bs, 2560)
 
     output = self.relu(self.densel1(emb))
+    output = self.drop(output)
     output = self.relu(self.densel2(output))
+    output = self.drop(output)
     output = self.relu(self.densel3(output))
+    output = self.drop(output)
     out = self.label(output)
 
     return out
