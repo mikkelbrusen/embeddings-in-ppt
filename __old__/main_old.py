@@ -10,12 +10,13 @@ import argparse
 import sys
 import pickle
 
-from utils import iterate_minibatches, ResultsContainer, tensor_to_onehot
-from confusionmatrix import ConfusionMatrix
-from metrics_mc import gorodkin, IC
+from dataloaders.subcel import iterate_minibatches
+from utils.utils import ResultsContainer, tensor_to_onehot
+from utils.confusionmatrix import ConfusionMatrix
+from utils.metrics_mc import gorodkin, IC
 from models.model import ABLSTM, StraightToLinear, SeqVec
-from model_utils.awd_model import AWD_Embedding
-from datautils.dataloader import tokenize_sequence
+from models.utils.awd_model import AWD_Embedding
+from utils.data_utils import tokenize_sequence
 
 
 parser = argparse.ArgumentParser()

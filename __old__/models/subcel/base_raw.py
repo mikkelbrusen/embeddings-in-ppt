@@ -1,11 +1,10 @@
 import math
-import numpy as np
 import torch
 import sys
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model_utils.attention import Attention, MultiStepAttention
+from models.utils.attention import Attention, MultiStepAttention
 
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig
@@ -15,27 +14,6 @@ class Config(BaseConfig):
     super().__init__(args)
     self.Model = Model
 
-  def _prepare_tensors(self, batch):
-    inputs, targets, in_masks, targets_mem, unk_mem = batch
-
-    seq_lengths = in_masks.sum(1).astype(np.int32)
-
-    #sort to be in decending order for pad packed to work
-    perm_idx = np.argsort(-seq_lengths)
-    in_masks = in_masks[perm_idx]
-    seq_lengths = seq_lengths[perm_idx]
-    inputs = inputs[perm_idx]
-    targets = targets[perm_idx]
-    targets_mem = targets_mem[perm_idx]
-    unk_mem = unk_mem[perm_idx]
-
-    #convert to tensors
-    inputs = torch.from_numpy(inputs).to(self.args.device) # (batch_size, seq_len, n_feat)
-    in_masks = torch.from_numpy(in_masks).to(self.args.device)
-    seq_lengths = torch.from_numpy(seq_lengths).to(self.args.device)
-
-    return inputs, seq_lengths, in_masks, targets, targets_mem, unk_mem
-
 class Model(BaseModel):
   def __init__(self, args):
     super().__init__(args)
@@ -43,6 +21,8 @@ class Model(BaseModel):
     self.in_drop1d = nn.Dropout(args.in_dropout1d)
     self.in_drop2d = nn.Dropout2d(args.in_dropout2d)
     self.drop = nn.Dropout(args.hid_dropout)
+
+    self.embed = nn.Embedding(num_embeddings=21, embedding_dim=args.n_features, padding_idx=20)
 
     self.convs = nn.ModuleList([nn.Conv1d(in_channels=args.n_features, out_channels=args.n_filters, kernel_size=i, padding=i//2) for i in args.conv_kernels])
     self.cnn_final = nn.Conv1d(in_channels=len(self.convs)*args.n_filters, out_channels=128, kernel_size=3, padding= 3//2)
@@ -83,12 +63,14 @@ class Model(BaseModel):
           if 'bias' in name:
             param.data.zero_()
     
-  def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len, n_feat)
-    inp = self.in_drop1d(inp) # feature dropout
-    x = self.in_drop2d(inp)  # (batch_size, seq_len, n_feat) - 2d dropout
+  def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len)
+    inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 
-    x = x.permute(0, 2, 1)  # (batch_size, n_feat, seq_len)
-    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, n_feat*len(convs), seq_len)
+    inp = self.in_drop1d(inp) # feature dropout
+    x = self.in_drop2d(inp)  # (batch_size, seq_len, emb_size) - 2d dropout
+
+    x = x.permute(0, 2, 1)  # (batch_size, emb_size, seq_len)
+    conv_cat = torch.cat([self.relu(conv(x)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
     x = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
     x = x.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)

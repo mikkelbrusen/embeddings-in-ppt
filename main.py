@@ -63,7 +63,7 @@ if torch.cuda.is_available():
 ###############################################################################
 # Training
 ###############################################################################
-Config = import_module('models.{}.{}'.format(args.parser_name, args.model)).Config
+Config = import_module('configs.{}.{}'.format(args.parser_name, args.model)).Config
 config = Config(args)
 
 best_val_accs, best_val_models = config.trainer()

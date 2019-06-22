@@ -1,22 +1,23 @@
 import math
 import torch
-import sys
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model_utils.attention import Attention, MultiStepAttention
+from models.utils.elmo_bi import Elmo, key_transformation
 
-from models.subcel.base import Model as BaseModel
-from models.subcel.base import Config as BaseConfig
 
-class Config(BaseConfig):
+class Encoder(nn.Module):
+  """
+  Encoder structured like DeepLoc
+
+  Inputs: input, seq_len
+    - **input** of shape
+  Outputs: output
+    - **output** of shape (batch_size, seq_len, hidden_size*2)
+  """
   def __init__(self, args):
-    super().__init__(args)
-    self.Model = Model
+    super().__init__()
 
-class Model(BaseModel):
-  def __init__(self, args):
-    super().__init__(args)
     self.args = args
     self.in_drop1d = nn.Dropout(args.in_dropout1d)
     self.in_drop2d = nn.Dropout2d(args.in_dropout2d)
@@ -29,22 +30,10 @@ class Model(BaseModel):
     self.relu = nn.ReLU()
 
     self.lstm = nn.LSTM(128, args.n_hid, bidirectional=True, batch_first=True)
-    self.attn = Attention(in_size=args.n_hid*2, att_size=args.att_size)
 
-    self.dense = nn.Linear(args.n_hid*2, args.n_hid*2)
-    self.label = nn.Linear(args.n_hid*2, args.num_classes)
-    self.mem = nn.Linear(args.n_hid*2, 1)
- 
     self.init_weights()
     
-    
   def init_weights(self):
-    self.dense.bias.data.zero_()
-    torch.nn.init.orthogonal_(self.dense.weight.data, gain=math.sqrt(2))
-    
-    self.label.bias.data.zero_()
-    torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
-    
     for m in self.modules():
       if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
         for name, param in m.named_parameters():
@@ -62,8 +51,8 @@ class Model(BaseModel):
             torch.nn.init.orthogonal_(param.data, gain=math.sqrt(2))           
           if 'bias' in name:
             param.data.zero_()
-    
-  def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len)
+
+  def forward(self, inp, seq_lengths):    
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 
     inp = self.in_drop1d(inp) # feature dropout
@@ -80,13 +69,4 @@ class Model(BaseModel):
     packed_output, (h, c) = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
   
-    attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size*2) alpha = (batch_size, seq_len)
-    output = self.drop(attn_output)
-    
-    output = self.relu(self.dense(output)) # (batch_size, hidden_size*2)
-    output = self.drop(output)
-    
-    out = self.label(output) #(batch_size, num_classes)
-    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
-
-    return (out, out_mem), alpha # alpha only used for visualization in notebooks
+    return output

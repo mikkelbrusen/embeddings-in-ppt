@@ -8,32 +8,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from datautils.dataloader import tokenize_sequence
-from model_utils.attention import Attention, MultiStepAttention
-from utils import iterate_minibatches, do_layer_norm, ResultsContainer
-from confusionmatrix import ConfusionMatrix
-from metrics_mc import gorodkin, IC
+from dataloaders.subcel import iterate_minibatches
+from models.utils.attention import Attention, MultiStepAttention
+from utils.data_utils import tokenize_sequence
+from utils.utils import do_layer_norm, ResultsContainer
+from utils.confusionmatrix import ConfusionMatrix
+from utils.metrics_mc import gorodkin, IC
 
-class Model(nn.Module):
-  def __init__(self, args):
-    super().__init__()
-    
-  def init_weights(self):
-    raise NotImplementedError()
-    
-  def forward(self, inp, seq_lengths): # inp: (batch_size, seq_len)
-    raise NotImplementedError()
+from configs.config_base import Config as ConfigBase, Model
 
-
-################################
-#            Config
-################################
-
-class Config:
-  def __init__(self, args):
+class Config(ConfigBase):
+  """
+  THIS IS A BASE CLASS AND CAN ONLY RUN IF GIVEN AN ENCODER AND DECODER
+  """
+  def __init__(self, args, Encoder, Decoder):
     self.results = ResultsContainer()
     self.args = args
-    self.Model = Model
+    self.encoder = Encoder
+    self.decoder = Decoder
 
     self.traindata, self.testdata = self._load_data()
 
@@ -217,7 +209,7 @@ class Config:
       best_val_model = None
       # Network compilation
       print("Compilation model {}".format(i))
-      model = self.Model(self.args).to(self.args.device)
+      model = Model(self.args, self.encoder, self.decoder).to(self.args.device)
       print("Model: ", model)
 
       # Train and validation sets

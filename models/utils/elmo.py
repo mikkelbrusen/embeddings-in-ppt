@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from utils import reverse_padded_sequence
+from utils.utils import reverse_padded_sequence
 
 from pretrained_models.elmo.weight_drop import WeightDrop
 from pretrained_models.elmo.embed_regularize import embedded_dropout

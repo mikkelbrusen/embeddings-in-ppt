@@ -4,7 +4,7 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 sys.path.insert(0,'..')
-from utils import length_to_negative_mask
+from utils.utils import length_to_negative_mask
 
 class Attention(nn.Module):
   def __init__(self, in_size, att_size):

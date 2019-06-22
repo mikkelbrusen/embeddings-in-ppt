@@ -7,26 +7,25 @@ from torch.autograd import Variable
 
 from models.subcel.base_raw import Model as BaseModel
 from models.subcel.base_raw import Config as BaseConfig
-from model_utils.awd_model import AWD_Embedding
+from models.utils.attention import Attention
+from models.utils.awd_model import AWD_Embedding
 
 class Config(BaseConfig):
   def __init__(self, args):
     super().__init__(args)
-    self.Model = SeqVec
+    self.Model = SimpleAttention
 
-class SeqVec(nn.Module):
+class SimpleAttention(nn.Module):
   def __init__(self, args):
     super().__init__()
     self.args = args
     self.awd = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
 
-    self.linear = nn.Linear(1280, 32)
-    self.drop = nn.Dropout(0.2)
-    self.relu = nn.ReLU()
-    self.bn = nn.BatchNorm1d(32)
-    self.label = nn.Linear(32, args.num_classes)
-    self.mem = nn.Linear(32, 1)
-    
+    self.attn = Attention(in_size=1280, att_size=args.att_size)
+    self.in_drop = nn.Dropout2d(args.in_dropout1d)
+    self.label = nn.Linear(1280, args.num_classes)
+    self.mem = nn.Linear(1280, 1)
+ 
     self.init_weights()
 
     # load pretrained awd
@@ -37,21 +36,22 @@ class SeqVec(nn.Module):
     # init awd hidden
     self.awd_hidden = [(hid[0].to(args.device),hid[1].to(args.device)) for hid in self.awd.init_hidden(args.batch_size)]
     
-  def init_weights(self):
-    self.linear.bias.data.zero_()
-    torch.nn.init.orthogonal_(self.linear.weight.data, gain=math.sqrt(2))
+  def init_weights(self):  
+    self.label.bias.data.zero_()
+    torch.nn.init.orthogonal_(self.label.weight.data, gain=math.sqrt(2))
 
   def forward(self, inp, seq_lengths):
     #### AWD 
     with torch.no_grad():
       all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.awd(input=inp, hidden=self.awd_hidden, seq_lengths=seq_lengths)
 
-    model_input = (dropped_all_hid[0] + dropped_all_hid[1]) #(seq_len, bs, 1280)
-    model_input = model_input.mean(0) # (bs, 1280)
+    model_input = all_hid # (seq_len, bs, emb_size)
+    model_input = model_input.permute(1,0,2) # (bs, seq_len, emb_size)
 
-    output = self.bn(self.relu(self.drop(self.linear(model_input))))
+    output = self.in_drop(model_input) #(batch_size, seq_len, emb_size)
+    attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, hidden_size)
+    out = self.label(attn_output) #(batch_size, num_classes)
+    out_mem = torch.sigmoid(self.mem(attn_output)) #(batch_size, 1)
 
-    out = self.label(output) #(batch_size, num_classes)
-    out_mem = torch.sigmoid(self.mem(output)) #(batch_size, 1)
+    return (out, out_mem), alpha # alpha only used for visualization in notebooks
 
-    return (out, out_mem), None # alpha only used for visualization in notebooks

@@ -4,10 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from model_utils.attention import Attention, MultiStepAttention
+from models.utils.attention import Attention, MultiStepAttention
 from models.subcel.base_raw import Model as BaseModel
 from models.subcel.base_raw import Config as BaseConfig
-from model_utils.awd_model import AWD_Embedding
+from models.utils.awd_model import AWD_Embedding
 
 class Config(BaseConfig):
   def __init__(self, args):
