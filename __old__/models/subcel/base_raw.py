@@ -4,7 +4,7 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model_utils.attention import Attention, MultiStepAttention
+from models.utils.attention import Attention, MultiStepAttention
 
 from models.subcel.base import Model as BaseModel
 from models.subcel.base import Config as BaseConfig

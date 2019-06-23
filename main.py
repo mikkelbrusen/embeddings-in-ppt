@@ -30,10 +30,7 @@ subparsers = parser.add_subparsers(dest='parser_name')
 
 # Subcellular
 parser_subcel = subparsers.add_parser("subcel", help='Experiments in subcellular localization', parents=[base_parser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_subcel.add_argument('--trainset',  help="Path to the trainset", default="data/Deeploc_seq/train.npz")
-parser_subcel.add_argument('--testset',  help="Path to the testset", default="data/Deeploc_seq/test.npz")
-parser_subcel.add_argument('--is_profiles',  help="Data consist of profiles and not raw sequences", action="store_true")
-parser_subcel.add_argument('--model', help="Choose which model you want to run", default="deeploc_raw")
+parser_subcel.add_argument('--config', help="Choose which config you want to run", default="deeploc_raw")
 parser_subcel.add_argument('--n_features',  help="Embedding size or number of features in profiles", type=int, default=20)
 parser_subcel.add_argument('--n_filters',  help="Number of filters", type=int, default=20)
 parser_subcel.add_argument('--in_dropout1d',  help="Input dropout feature", type=float, default=0.2)
@@ -62,6 +59,13 @@ parser_secpred.add_argument('--n_outputs',  help="Number of outputs", type=int, 
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args.device = device
+
+print("#"*40)
+print("#", ' '*36, "#")
+print("#", '{:^36}'.format(args.parser_name + " - " + args.config), "#")
+print("#", ' '*36, "#")
+print("#"*40)
+
 print("Arguments: ", args)
 
 torch.manual_seed(args.seed)
@@ -72,7 +76,7 @@ if torch.cuda.is_available():
 ###############################################################################
 # Training
 ###############################################################################
-Config = import_module('models.{}.{}'.format(args.parser_name, args.model)).Config
+Config = import_module('configs.{}.{}'.format(args.parser_name, args.config)).Config
 config = Config(args)
 
 best_val_accs, best_val_models = config.trainer()

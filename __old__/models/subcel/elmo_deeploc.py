@@ -4,11 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import rename_state_dict_keys
-from model_utils.attention import Attention, MultiStepAttention
+from utils.utils import rename_state_dict_keys
+from models.utils.attention import Attention, MultiStepAttention
 from models.subcel.base_raw import Model as BaseModel
 from models.subcel.base_raw import Config as BaseConfig
-from model_utils.elmo_bi import Elmo, key_transformation
+from models.utils.elmo_bi import Elmo, key_transformation
 
 class Config(BaseConfig):
   def __init__(self, args):

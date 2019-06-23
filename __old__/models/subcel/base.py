@@ -8,11 +8,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from datautils.dataloader import tokenize_sequence
-from model_utils.attention import Attention, MultiStepAttention
-from utils import iterate_minibatches, do_layer_norm, ResultsContainer
-from confusionmatrix import ConfusionMatrix
-from metrics_mc import gorodkin, IC
+from dataloaders.subcel import iterate_minibatches
+from models.utils.attention import Attention, MultiStepAttention
+from utils.data_utils import tokenize_sequence
+from utils.utils import do_layer_norm, ResultsContainer
+from utils.confusionmatrix import ConfusionMatrix
+from utils.metrics_mc import gorodkin, IC
+
+
 
 class Model(nn.Module):
   def __init__(self, args):

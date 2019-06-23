@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 sys.path.insert(0,'..')
-from model_utils.attention import Attention, MultiStepAttention
-from utils import do_layer_norm
+from models.utils.attention import Attention, MultiStepAttention
+from utils.utils import do_layer_norm
 
 
 class ABLSTM(nn.Module):
