@@ -7,8 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 from torch.autograd import Variable
-from model_utils.crf_layer import CRF
-import datautils.data as data
+from models.utils.crf_layer import CRF
+import dataloaders.secpred as data
+
+from configs.config_base import Config as ConfigBase
 
 class Model(nn.Module):
   def __init__(self, args):
@@ -19,8 +21,8 @@ class Model(nn.Module):
 #            Config
 ################################
 
-class Config:
-  def __init__(self, args):
+class Config(ConfigBase):
+  def __init__(self, args, Model):
     self.args = args
     self.Model = Model
 
@@ -77,7 +79,7 @@ class Config:
       targets = Variable(torch.from_numpy(targets).type(torch.long)).to(self.args.device)
 
       self.optimizer.zero_grad()
-      output = model(inp=inp, seq_lengths=seq_lens)
+      output = model(inp=inp, seq_len=seq_lens)
       
       if self.args.crf:
           # calculate loss
@@ -134,7 +136,7 @@ class Config:
       mask_float = Variable(torch.from_numpy(mask).type(torch.float)).to(self.args.device)
       targets = Variable(torch.from_numpy(targets).type(torch.long)).to(self.args.device)
 
-      output = model(inp=inp, seq_lengths=seq_lens)
+      output = model(inp=inp, seq_len=seq_lens)
       
       if self.args.crf:
           output = output.double()
@@ -177,7 +179,7 @@ class Config:
       mask_float = Variable(torch.from_numpy(mask).type(torch.float)).to(self.args.device)
       targets = Variable(torch.from_numpy(targets).type(torch.long)).to(self.args.device)
 
-      output = model(inp=inp, seq_lengths=seq_lens)
+      output = model(inp=inp, seq_len=seq_lens)
       
       if self.args.crf:
           output = output.double()

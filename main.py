@@ -45,7 +45,7 @@ parser_subcel.add_argument('--att_size', help="Size of the attention", type=int,
 parser_secpred = subparsers.add_parser("secpred", help="Experiments in secondary structure prediction", parents=[base_parser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser_secpred.add_argument('--trainset',  help="Path to the trainset", default="data/SecPred/train_no_x.npy")
 parser_secpred.add_argument('--testset',  help="Path to the testset", default="data/SecPred/test_no_x.npy")
-parser_secpred.add_argument('--model', help="Choose which model you want to run", default="biRNN-CRF")
+parser_secpred.add_argument('--config', help="Choose which model you want to run", default="soenderby_raw")
 parser_secpred.add_argument('--crf', help="Turn on CRF", action="store_true")
 parser_secpred.add_argument('--cb513', help="Use CB513 as test set", action="store_true")
 parser_secpred.add_argument('--raw', help="Use raw sequence data", action="store_true")

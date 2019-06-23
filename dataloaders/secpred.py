@@ -4,7 +4,6 @@ import subprocess
 import sys
 import copy
 sys.path.insert(0,'..')
-import datautils.casphandle as casphandle
 import utils
 
 SAVE_DATASETS = False
@@ -234,31 +233,6 @@ def save_raw_dataset(data, Y, masks, targets, is_test, is_cullpdb=False):
     else:
       np.savez("data/SecPred/train_raw", X_train=datargmax, t_train=targets, mask_train=masks)
       np.save("data/SecPred/train_no_x", Y)
-
-def get_casp(seq_len=None):
-  X_casp, t_casp, mask_casp = casphandle.get_data()
-
-  # getting meta
-  seqlen = np.size(X_casp,1)
-  d = np.size(X_casp,2)
-  num_classes = 8
-
-  ### ADDING BATCH PADDING ###
-  num_add = 256 - X_casp.shape[0]
-  X_add = np.zeros((num_add,seqlen,d))
-  t_add = np.zeros((num_add,seqlen))
-  mask_add = np.zeros((num_add,seqlen))
-  #
-  X_casp = np.concatenate((X_casp, X_add), axis=0).astype("float32")
-  t_casp = np.concatenate((t_casp, t_add), axis=0).astype('int32')
-  mask_casp = np.concatenate((mask_casp, mask_add), axis=0).astype("float32")
-  if seq_len is not None:
-    X_casp = X_casp[:, :seq_len]
-    t_casp = t_casp[:, :seq_len]
-    mask_casp = mask_casp[:, :seq_len]
-  len_casp = np.sum(mask_casp, axis=1)
-  len_casp[-num_add:] = np.ones((num_add,), dtype='int32')
-  return X_casp, mask_casp, t_casp, len_casp
 
 
 def load_data(is_cb513, is_raw, train_path, test_path):
