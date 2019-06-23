@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from configs.subcel.base import Config as BaseConfig
 
-from models.encoders.deeploc_raw import Encoder
+from models.encoders.deeploc_profiles import Encoder
 from models.decoders.deeploc import Decoder
 
 class Model(nn.Module):
@@ -19,4 +19,4 @@ class Model(nn.Module):
 
 class Config(BaseConfig):
   def __init__(self, args):
-    super().__init__(args, Model)
+    super().__init__(args, Model, raw=False)

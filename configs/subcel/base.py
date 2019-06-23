@@ -15,25 +15,32 @@ from utils.utils import do_layer_norm, ResultsContainer
 from utils.confusionmatrix import ConfusionMatrix
 from utils.metrics_mc import gorodkin, IC
 
-from configs.config_base import Config as ConfigBase, Model
+from configs.config_base import Config as ConfigBase
 
 class Config(ConfigBase):
   """
   THIS IS A BASE CLASS AND CAN ONLY RUN IF GIVEN AN ENCODER AND DECODER
   """
-  def __init__(self, args, Encoder, Decoder):
+  def __init__(self, args, Model, raw=True):
     self.results = ResultsContainer()
     self.args = args
-    self.encoder = Encoder
-    self.decoder = Decoder
+    self.Model = Model
+    self.raw = raw
+
+    if raw:
+      self.trainset = "data/Deeploc_seq/train.npz"
+      self.testset = "data/Deeploc_seq/test.npz"
+    else:
+      self.trainset = "data/Deeploc/train.npz"
+      self.testset = "data/Deeploc/test.npz"
 
     self.traindata, self.testdata = self._load_data()
 
   def _load_data(self):
     # Load data
     print("Loading data...")
-    test_data = np.load(self.args.testset)
-    train_data = np.load(self.args.trainset)
+    test_data = np.load(self.testset)
+    train_data = np.load(self.trainset)
 
     # Test set
     X_test = test_data['X_test']
@@ -54,7 +61,7 @@ class Config(ConfigBase):
     print("X_test.shape", X_test.shape)
 
     # Tokenize and remove invalid sequenzes
-    if (not self.args.is_profiles): # is_raw
+    if (self.raw):
       X_train, mask = tokenize_sequence(X_train)
       X_train = np.asarray(X_train)
       y_train = y_train[mask]
@@ -88,7 +95,9 @@ class Config(ConfigBase):
     unk_mem = unk_mem[perm_idx]
 
     #convert to tensors
-    inputs = Variable(torch.from_numpy(inputs)).type(torch.long).to(self.args.device) # (batch_size, seq_len)
+    inputs = torch.from_numpy(inputs).to(self.args.device) # (batch_size, seq_len)
+    if self.raw:
+      inputs = inputs.long()
     in_masks = torch.from_numpy(in_masks).to(self.args.device)
     seq_lengths = torch.from_numpy(seq_lengths).to(self.args.device)
 
@@ -206,10 +215,11 @@ class Config(ConfigBase):
 
     for i in range(1,5):
       best_val_acc = 0
+      best_val_epoch = 0
       best_val_model = None
       # Network compilation
       print("Compilation model {}".format(i))
-      model = Model(self.args, self.encoder, self.decoder).to(self.args.device)
+      model = self.Model(self.args).to(self.args.device)
       print("Model: ", model)
 
       # Train and validation sets
@@ -238,6 +248,7 @@ class Config(ConfigBase):
         self.results.append_epoch(train_loss, val_loss, confusion_train.accuracy(), confusion_valid.accuracy()) 
         
         if confusion_valid.accuracy() > best_val_acc:
+          best_val_epoch = epoch
           best_val_acc = confusion_valid.accuracy()
           best_val_model = copy.deepcopy(model)
 
@@ -254,6 +265,8 @@ class Config(ConfigBase):
         
         sys.stdout.flush()
 
+      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc, best_val_epoch), ' ' * 14, '|')
+      print('-' * 79)
       best_val_accs.append(best_val_acc)
       best_val_models.append(best_val_model)
 

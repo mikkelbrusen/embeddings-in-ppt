@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.utils.elmo_bi import Elmo, key_transformation
+from utils.utils import init_weights
 
 
 class Encoder(nn.Module):
@@ -31,26 +32,8 @@ class Encoder(nn.Module):
 
     self.lstm = nn.LSTM(128, args.n_hid, bidirectional=True, batch_first=True)
 
-    self.init_weights()
+    init_weights(self)
     
-  def init_weights(self):
-    for m in self.modules():
-      if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
-        for name, param in m.named_parameters():
-          if 'weight_ih' in name:
-            torch.nn.init.orthogonal_(param.data, gain=1)
-          elif 'weight_hh' in name:
-            torch.nn.init.orthogonal_(param.data, gain=1)
-          elif 'bias_ih' in name:
-            param.data.zero_()
-          elif 'bias_hh' in name:
-            param.data.zero_()
-      elif type(m) in [nn.Conv1d]:
-        for name, param in m.named_parameters():
-          if 'weight' in name:
-            torch.nn.init.orthogonal_(param.data, gain=math.sqrt(2))           
-          if 'bias' in name:
-            param.data.zero_()
 
   def forward(self, inp, seq_lengths):    
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)

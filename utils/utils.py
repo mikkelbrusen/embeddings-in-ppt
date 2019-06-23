@@ -1,6 +1,8 @@
+import math
 import numpy as np
 import random
 import torch
+import torch.nn as nn
 from collections import OrderedDict
 from torch.autograd import Variable
 
@@ -159,6 +161,27 @@ def do_layer_norm(tensor, mask):
     mean = torch.sum(tensor_masked) / num_elements_not_masked
     variance = torch.sum(((tensor_masked - mean) * broadcast_mask)**2) / num_elements_not_masked
     return (tensor - mean) / torch.sqrt(variance + 1E-12)
+
+def init_weights(model: nn.Module):
+    for m in model.modules():
+        if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
+            for name, param in m.named_parameters():
+                if 'weight_ih' in name:
+                    torch.nn.init.orthogonal_(param.data, gain=1)
+                elif 'weight_hh' in name:
+                    torch.nn.init.orthogonal_(param.data, gain=1)
+                elif 'bias_ih' in name:
+                    param.data.zero_()
+                elif 'bias_hh' in name:
+                    param.data.zero_()
+
+        elif type(m) in [nn.Conv1d, nn.Linear]:
+            for name, param in m.named_parameters():
+                if 'weight' in name:
+                    torch.nn.init.orthogonal_(param.data, gain=math.sqrt(2))          
+                if 'bias' in name:
+                    param.data.zero_()
+
 
 if __name__ == "__main__":
   batch_size = 7

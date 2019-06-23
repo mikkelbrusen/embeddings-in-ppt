@@ -56,7 +56,6 @@ class Elmo(nn.Module):
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-
     def forward(self, input, seq_lengths):
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
         emb = self.lockdrop(emb, self.dropouti) #(bs, seq_len, emb_size)

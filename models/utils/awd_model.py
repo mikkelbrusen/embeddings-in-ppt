@@ -43,7 +43,7 @@ class AWD_Embedding(nn.Module):
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, input, hidden, seq_lengths):
+    def forward(self, input, seq_lengths):
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)
         #emb = self.idrop(emb)
 
@@ -57,7 +57,7 @@ class AWD_Embedding(nn.Module):
         for l, rnn in enumerate(self.rnns):
             current_input = raw_output
             raw_output = nn.utils.rnn.pack_padded_sequence(raw_output, seq_lengths)
-            packed_output, new_h = rnn(raw_output, hidden[l])
+            packed_output, new_h = rnn(raw_output)
             raw_output, _ = nn.utils.rnn.pad_packed_sequence(packed_output) # (seq_len, bs, hid)
             new_hidden.append(new_h)
             raw_outputs.append(raw_output)

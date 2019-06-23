@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.utils import rename_state_dict_keys
-from models.utils.elmo_bi import Elmo, key_transformation
+from models.utils.awd_model import AWD_Embedding
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
@@ -20,22 +19,21 @@ class Encoder(BaseEncoder):
   def __init__(self, args):
     super().__init__(args)
 
-    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.awd = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
 
-    # load pretrained elmo
-    with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
-      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    state_dict = rename_state_dict_keys(state_dict, key_transformation)
-    self.elmo.load_state_dict(state_dict, strict=False)
+    # load pretrained awd
+    with open("pretrained_models/awd_lstm/test_v2_statedict.pt", 'rb') as f:
+        state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+    self.awd.load_state_dict(state_dict)
 
   def forward(self, inp, seq_lengths):
-    #### Elmo 
+    #### AWD 
     with torch.no_grad():
-      (elmo_hid, elmo_hid_rev), last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
+      all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.awd(input=inp, seq_lengths=seq_lengths)
     
-    elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
-    elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, emb_size) 
-    ### End Elmo 
+    awd_hid = all_hid # (seq_len, bs, emb_size)
+    awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
+    ### End AWD 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 
@@ -54,7 +52,7 @@ class Encoder(BaseEncoder):
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
     ### Concat 320 hidden layer to BiLSTM
-    output = torch.cat((output, elmo_hid, elmo_hid_rev),dim=2) # (batch_size, seq_len, hidden_size*2+320*2)
+    output = torch.cat((output, awd_hid),dim=2) # (batch_size, seq_len, hidden_size*2+320)
     ### End Concat
-  
+
     return output

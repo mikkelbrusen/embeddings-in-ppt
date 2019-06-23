@@ -1,21 +1,6 @@
 from abc import abstractmethod
 import torch.nn as nn
 
-class Model(nn.Module):
-  def __init__(self, args, Encoder, Decoder):
-    super().__init__()
-
-    self.args = args
-    self.encoder = Encoder(args)
-    self.decoder = Decoder(args)
-
-  def forward(self, inp, seq_len):
-    output = self.encoder(inp, seq_len)
-    output = self.decoder(output, seq_len)
-
-    return output
-
-
 class Config:
   """
   This is the interface that all config files should implement
