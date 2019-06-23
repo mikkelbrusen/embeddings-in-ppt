@@ -10,12 +10,12 @@ from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 class Encoder(BaseEncoder):
   """
-  Encoder with elmo concatenated to the LSTM output
+  Encoder 
 
   Inputs: input, seq_len
     - **input** of shape
   Outputs: output
-    - **output** of shape (batch_size, seq_len, hidden_size*2+320*2)
+    - **output** of shape 
   """
   def __init__(self, args):
     super().__init__(args)

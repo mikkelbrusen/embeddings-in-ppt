@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.utils.elmo_bi import Elmo, key_transformation
+from models.utils.elmo_model import Elmo, key_transformation
 from utils.utils import init_weights
 
 

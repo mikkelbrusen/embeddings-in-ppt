@@ -4,18 +4,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.utils import rename_state_dict_keys, length_to_mask
-from models.utils.elmo_bi import Elmo, key_transformation
+from models.utils.elmo_model import Elmo, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
 class Encoder(BaseEncoder):
   """
-  Encoder with elmo concatenated to the LSTM output
+  Encoder 
 
   Inputs: input, seq_len
     - **input** of shape
   Outputs: output
-    - **output** of shape (batch_size, seq_len, hidden_size*2+320*2)
+    - **output** of shape 
   """
   def __init__(self, args):
     super().__init__(args)

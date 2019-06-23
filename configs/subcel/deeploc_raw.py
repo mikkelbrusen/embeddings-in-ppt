@@ -3,7 +3,7 @@ import torch.nn as nn
 from configs.subcel.base import Config as BaseConfig
 
 from models.encoders.deeploc_raw import Encoder
-from models.decoders.deeploc import Decoder
+from models.decoders.deeploc_subcel import Decoder
 
 class Model(nn.Module):
   def __init__(self, args):

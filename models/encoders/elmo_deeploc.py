@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.utils import rename_state_dict_keys
-from models.utils.elmo_bi import Elmo, key_transformation
+from models.utils.elmo_model import Elmo, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
