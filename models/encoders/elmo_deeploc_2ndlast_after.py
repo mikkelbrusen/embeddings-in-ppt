@@ -20,13 +20,16 @@ class Encoder(BaseEncoder):
     super().__init__(args)
 
     self.elmo = Elmo(args)
+    self.project = nn.Linear(2560, 300)
 
   def forward(self, inp, seq_lengths):
-
-    (elmo_hid, elmo_hid_rev), last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(inp, seq_lengths)
+    all_hid, last_hid, raw_all_hid, (elmo_hid, elmo_hid_rev), emb = self.elmo(inp, seq_lengths)
     
-    elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
-    elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, emb_size) 
+    elmo_hid = elmo_hid[1].permute(1,0,2) # (bs, seq_len, 1280) 
+    elmo_hid_rev = elmo_hid_rev[1].permute(1,0,2) # (bs, seq_len, 1280) 
+
+    elmo_hid = torch.cat((elmo_hid,elmo_hid_rev), dim=2) # (bs, seq_len, 2560) 
+    elmo_hid = self.project(elmo_hid) # (bs, seq_len, 300) 
     ### End Elmo 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
@@ -46,7 +49,7 @@ class Encoder(BaseEncoder):
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
     ### Concat 320 hidden layer to BiLSTM
-    output = torch.cat((output, elmo_hid, elmo_hid_rev),dim=2) # (batch_size, seq_len, hidden_size*2+320*2)
+    output = torch.cat((output, elmo_hid),dim=2) # (batch_size, seq_len, hidden_size*2+300)
     ### End Concat
   
     return output

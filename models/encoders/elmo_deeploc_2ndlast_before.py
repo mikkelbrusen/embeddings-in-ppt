@@ -22,7 +22,6 @@ class Encoder(BaseEncoder):
     self.elmo = Elmo(args)
 
   def forward(self, inp, seq_lengths):
-
     (elmo_hid, elmo_hid_rev), last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(inp, seq_lengths)
     
     elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, emb_size) 
