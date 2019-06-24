@@ -12,9 +12,9 @@ class Encoder(BaseEncoder):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- architecture: before, after or both
     -- elmo_layer: last, 2ndlast, h, c or hc
       where h c and hc are from the 2nd last layer in elmo
+    -- architecture: before, after or both
 
   Inputs: input, seq_len
     - **input** of shape
@@ -22,7 +22,7 @@ class Encoder(BaseEncoder):
     - **output** of shape (batch_size, seq_len, hidden_size*2 + 300) if arch is after/both else 
       (batch_size, seq_len, hidden_size*2)
   """
-  def __init__(self, args, architecture, elmo_layer):
+  def __init__(self, args, elmo_layer, architecture):
     super().__init__(args)
     self.architecture = architecture
     self.elmo_layer = elmo_layer
