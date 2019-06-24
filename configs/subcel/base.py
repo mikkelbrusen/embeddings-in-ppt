@@ -252,17 +252,17 @@ class Config(ConfigBase):
           self.results.best_val_acc = best_val_acc
           best_model = copy.deepcopy(model)
         
-        print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs-1, time.time() - start_time), '-' * 22 )
-        print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
+        print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs-1, time.time() - start_time), '-' * 23 )
+        print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | MMC {:2.2f}' 
               ' |'.format(train_loss, confusion_train.accuracy()*100, confusion_mem_train.accuracy()*100, gorodkin(confusion_train.ret_mat()), IC(confusion_train.ret_mat())))
-        print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | IC {:2.2f}' 
+        print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | MMC {:2.2f}' 
               ' |'.format(val_loss, confusion_valid.accuracy()*100, confusion_mem_valid.accuracy()*100, gorodkin(confusion_valid.ret_mat()), IC(confusion_valid.ret_mat())))
-        print('-' * 79)
+        print('-' * 80)
         
         sys.stdout.flush()
 
-      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc, best_val_epoch), ' ' * 14, '|')
-      print('-' * 79)
+      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc, best_val_epoch), ' ' * 15, '|')
+      print('-' * 80)
       best_val_accs.append(best_val_acc)
 
       save_model(best_val_model, self.args, index=i)
@@ -288,9 +288,9 @@ class Config(ConfigBase):
     print(confusion_test)
     print(confusion_mem_test)
     print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
-    print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
     print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
-    print("test IC:\t\t{:.2f}".format(IC(confusion_test.ret_mat())))
+    print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
+    print("test mem MMC:\t\t{:.2f}".format(confusion_mem_test.matthews_correlation()*100))
 
     self.results.set_final(
       alph = alphas.cpu().detach().numpy(), 
