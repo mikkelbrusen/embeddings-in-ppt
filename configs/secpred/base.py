@@ -215,12 +215,10 @@ class Config(ConfigBase):
         start_time = time.time()
         train_loss, train_accuracy = self.run_train(model=model)
         val_loss, val_accuracy = self.run_eval(model=model)
-        test_loss, test_accuracy = self.run_test(model=model)
         if val_accuracy > best_val_acc:
             best_val_acc = val_accuracy
             idx = epoch
             best_val_model = copy.deepcopy(model)
-            print("Saving new best model: ", epoch)
 
 
         print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs, time.time() - start_time), '-' * 22 )
@@ -229,20 +227,14 @@ class Config(ConfigBase):
         ' |'.format(train_loss, train_accuracy*100))
         print('| Valid | loss {:.4f} | acc {:.2f}%' 
         ' |'.format(val_loss, val_accuracy*100))
-        print('| Test | loss {:.4f} | acc {:.2f}%' 
-        ' |'.format(test_loss, test_accuracy*100))
-        print('-' * 79)
         sys.stdout.flush()
 
     return best_val_acc, best_val_model
 
 
   def tester(self, best_val_model):
-    val_loss, val_accuracy = self.run_eval(model=best_val_model)
     test_loss, test_accuracy = self.run_test(model=best_val_model)
 
-    print('| Valid | loss {:.4f} | acc {:.2f}%'
-    ' |'.format(val_loss, val_accuracy*100))
     print('| Test | loss {:.4f} | acc {:.2f}%' 
     ' |'.format(test_loss, test_accuracy*100))
     print('-' * 79)
