@@ -212,6 +212,7 @@ class Config(ConfigBase):
     print("Model: ", model)
 
     best_val_acc = 0.0
+    idx = 0
     best_val_model = None
     for epoch in range(self.args.epochs):
         start_time = time.time()
@@ -231,6 +232,10 @@ class Config(ConfigBase):
         ' |'.format(val_loss, val_accuracy*100))
         sys.stdout.flush()
 
+    print('BEST RESULTS')
+    print('| Valid | epoch {:3d} | acc {:.2f}%'
+    ' |'.format(idx, best_val_acc*100))
+    sys.stdout.flush()
     save_model(best_val_model, self.args)
 
 
