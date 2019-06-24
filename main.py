@@ -1,14 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
 import os
 import time
 import argparse 
 import sys
-import pickle
 from importlib import import_module
 
 parser = argparse.ArgumentParser()
@@ -21,9 +19,7 @@ base_parser.add_argument('--optimizer',  help="optimizer", default="adam")
 base_parser.add_argument('--seed',  help="Seed for random number init.", type=int, default=123456)
 base_parser.add_argument('--clip', help="Gradient clipping", type=float, default=2.0)
 base_parser.add_argument('--do_testing', help="Run best model(s) on test data", action="store_true")
-current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
-base_parser.add_argument('--save', help="Path to best saved model", default="save/best_model_" + current_time + ".pt")
-base_parser.add_argument('--save_results', help="Path to result object containing all kind of results", default="save/best_results_" + current_time)
+base_parser.add_argument('--test_only', help="Run best model(s) on test data only", action="store_true")
 
 ### SUBPARSERS ### 
 subparsers = parser.add_subparsers(dest='parser_name')
@@ -55,10 +51,12 @@ parser_secpred.add_argument('--n_rnn_hid',  help="Number of hidden units in rnn"
 parser_secpred.add_argument('--n_l2',  help="Size of second linear layer", type=int, default=400)
 parser_secpred.add_argument('--n_outputs',  help="Number of outputs", type=int, default=8)
 
-
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args.device = device
+
+current_time = time.strftime('%b_%d-%H_%M') # 'Oct_18-09:03'
+args.start_time = current_time
 
 print("#"*40)
 print("#", ' '*36, "#")
@@ -79,10 +77,11 @@ if torch.cuda.is_available():
 Config = import_module('configs.{}.{}'.format(args.parser_name, args.config)).Config
 config = Config(args)
 
-best_val_accs, best_val_models = config.trainer()
+if not args.test_only:
+  config.trainer()
 
 ###############################################################################
 # Testing
 ###############################################################################
-if args.do_testing:
-  config.tester(best_val_models)
+if args.do_testing or args.test_only:
+  config.tester()

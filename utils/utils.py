@@ -1,4 +1,6 @@
 import math
+import os
+import pickle
 import numpy as np
 import random
 import torch
@@ -182,6 +184,25 @@ def init_weights(model: nn.Module):
                 if 'bias' in name:
                     param.data.zero_()
 
+def save_model(model, args, index=1):
+    path = "save/{}/{}/model_{}.pt".format(args.parser_name, args.config, index)
+    makedirs(path)
+    torch.save(model.state_dict(), path)
+
+def load_model(model, args, index=1):
+    path = "save/{}/{}/model_{}.pt".format(args.parser_name, args.config, index)
+    model.load_state_dict(torch.load(path, map_location='cuda' if torch.cuda.is_available() else 'cpu'))
+
+def save_results(results, args):
+    path = "save/{}/{}/results.pickle".format(args.parser_name, args.config)
+    makedirs(path)
+    with open(path, 'wb') as f:
+        pickle.dump(results, f)
+
+def makedirs(path):
+    dirname = os.path.dirname(path)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
 
 if __name__ == "__main__":
   batch_size = 7

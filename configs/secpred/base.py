@@ -10,6 +10,8 @@ from torch.autograd import Variable
 from models.utils.crf_layer import CRF
 import dataloaders.secpred as data
 
+from utils.utils import save_model, load_model
+
 from configs.config_base import Config as ConfigBase
 
 class Model(nn.Module):
@@ -234,12 +236,15 @@ class Config(ConfigBase):
         print('-' * 79)
         sys.stdout.flush()
 
-    return best_val_acc, best_val_model
+    save_model(best_val_model, self.args)
 
 
-  def tester(self, best_val_model):
-    val_loss, val_accuracy = self.run_eval(model=best_val_model)
-    test_loss, test_accuracy = self.run_test(model=best_val_model)
+  def tester(self):
+    model = self.Model(self.args).to(self.args.device)
+    load_model(model, self.args)
+
+    val_loss, val_accuracy = self.run_eval(model=model)
+    test_loss, test_accuracy = self.run_test(model=model)
 
     print('| Valid | loss {:.4f} | acc {:.2f}%'
     ' |'.format(val_loss, val_accuracy*100))

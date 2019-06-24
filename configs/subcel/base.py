@@ -11,7 +11,7 @@ from torch.autograd import Variable
 from dataloaders.subcel import iterate_minibatches
 from models.utils.attention import Attention, MultiStepAttention
 from utils.data_utils import tokenize_sequence
-from utils.utils import do_layer_norm, ResultsContainer
+from utils.utils import do_layer_norm, save_model, load_model, save_results, ResultsContainer
 from utils.confusionmatrix import ConfusionMatrix
 from utils.metrics_mc import gorodkin, IC
 
@@ -175,9 +175,6 @@ class Config(ConfigBase):
     return val_loss, confusion_valid, confusion_mem_valid, (alphas, targets, seq_lengths)
 
   def run_test(self, models, X, y, mask, mem, unk):
-    for i in range(len(models)):
-      models[i].eval()
-
     val_err = 0
     val_batches = 0
     confusion_valid = ConfusionMatrix(num_classes=10)
@@ -209,14 +206,13 @@ class Config(ConfigBase):
 
   def trainer(self):
     (X_train, y_train, mask_train, partition, mem_train, unk_train) = self.traindata
-    best_model = None
     best_val_accs = []
-    best_val_models = []
 
     for i in range(1,5):
       best_val_acc = 0
       best_val_epoch = 0
       best_val_model = None
+
       # Network compilation
       print("Compilation model {}".format(i))
       model = self.Model(self.args).to(self.args.device)
@@ -268,18 +264,25 @@ class Config(ConfigBase):
       print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc, best_val_epoch), ' ' * 14, '|')
       print('-' * 79)
       best_val_accs.append(best_val_acc)
-      best_val_models.append(best_val_model)
+
+      save_model(best_val_model, self.args, index=i)
 
     for i, acc in enumerate(best_val_accs):
       print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
     print("Average validation accuracy {:.2f}% \n".format((sum(best_val_accs)/len(best_val_accs))*100))
 
-    return best_val_accs, best_val_models
 
-
-  def tester(self, best_val_models):
+  def tester(self):
     (X_test, y_test, mask_test, mem_test, unk_test) = self.testdata
-    test_loss, confusion_test, confusion_mem_test, (alphas, targets, seq_lengths) = self.run_test(best_val_models, X_test, y_test, mask_test, mem_test, unk_test)
+
+    best_models = []
+    for i in range(1,5):
+      model = self.Model(self.args).to(self.args.device)
+      load_model(model, self.args, index=i)
+      model.eval()
+      best_models.append(model)
+
+    test_loss, confusion_test, confusion_mem_test, (alphas, targets, seq_lengths) = self.run_test(best_models, X_test, y_test, mask_test, mem_test, unk_test)
     
     print("ENSAMBLE TEST RESULTS")
     print(confusion_test)
@@ -297,3 +300,5 @@ class Config(ConfigBase):
       cf_mem = confusion_mem_test.ret_mat(), 
       acc = confusion_test.accuracy(), 
       acc_mem = confusion_mem_test.accuracy())
+    
+    save_results(self.results,self.args)
