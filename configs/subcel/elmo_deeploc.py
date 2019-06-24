@@ -10,8 +10,8 @@ class Model(nn.Module):
     super().__init__()
 
     self.args = args
-    self.encoder = Encoder(args)
-    self.decoder = Decoder(args, in_size=args.n_hid*2+320*2)
+    self.encoder = Encoder(args, architecture="after", elmo_layer="last")
+    self.decoder = Decoder(args, in_size=args.n_hid*2+300)
 
   def forward(self, inp, seq_len):
     output = self.encoder(inp, seq_len)

@@ -290,7 +290,7 @@ class Config(ConfigBase):
     print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
     print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
     print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
-    print("test mem MMC:\t\t{:.2f}".format(confusion_mem_test.matthews_correlation()[0]*100))
+    print("test mem MMC:\t\t{:.2f}".format(confusion_mem_test.matthews_correlation()[0]))
 
     self.results.set_final(
       alph = alphas.cpu().detach().numpy(), 
