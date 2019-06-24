@@ -8,7 +8,7 @@ from models.utils.elmo_model import Elmo, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
-class Encoder(BaseEncoder):
+class Encoder(nn.Module):
   """
   Encoder 
 

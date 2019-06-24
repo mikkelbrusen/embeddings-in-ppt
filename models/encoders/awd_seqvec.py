@@ -8,7 +8,7 @@ from models.utils.awd_model import AWD_Embedding
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
-class Encoder(BaseEncoder):
+class Encoder(nn.Module):
   """
   Encoder 
 
