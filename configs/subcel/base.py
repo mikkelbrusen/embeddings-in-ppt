@@ -246,11 +246,10 @@ class Config(ConfigBase):
         if confusion_valid.accuracy() > best_val_acc:
           best_val_epoch = epoch
           best_val_acc = confusion_valid.accuracy()
-          best_val_model = copy.deepcopy(model)
+          save_model(best_val_model, self.args, index=i)
 
         if best_val_acc > self.results.best_val_acc:
           self.results.best_val_acc = best_val_acc
-          best_model = copy.deepcopy(model)
         
         print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs-1, time.time() - start_time), '-' * 23 )
         print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | MMC {:2.2f}' 
@@ -260,12 +259,11 @@ class Config(ConfigBase):
         print('-' * 80)
         
         sys.stdout.flush()
+        torch.cuda.empty_cache()
 
-      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc, best_val_epoch), ' ' * 15, '|')
+      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc*100, best_val_epoch), ' ' * 15, '|')
       print('-' * 80)
       best_val_accs.append(best_val_acc)
-
-      save_model(best_val_model, self.args, index=i)
 
     for i, acc in enumerate(best_val_accs):
       print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
