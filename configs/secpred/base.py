@@ -212,13 +212,15 @@ class Config(ConfigBase):
     print("Model: ", model)
 
     best_val_acc = 0.0
+    best_val_loss = 0.0
     idx = 0
     best_val_model = None
     for epoch in range(self.args.epochs):
         start_time = time.time()
         train_loss, train_accuracy = self.run_train(model=model)
         val_loss, val_accuracy = self.run_eval(model=model)
-        if val_accuracy > best_val_acc:
+        if best_val_loss > val_loss:
+            best_val_loss = val_loss
             best_val_acc = val_accuracy
             idx = epoch
             best_val_model = copy.deepcopy(model)
