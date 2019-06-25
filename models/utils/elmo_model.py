@@ -64,8 +64,8 @@ class Elmo(nn.Module):
         raw_output = emb
         raw_output_rev = emb
 
-        new_hidden = []
-        new_hidden_rev = []
+        hidden = []
+        hidden_rev = []
         raw_outputs = []
         raw_outputs_rev = []
         outputs = []
@@ -82,8 +82,8 @@ class Elmo(nn.Module):
             raw_output_rev, _ = nn.utils.rnn.pad_packed_sequence(packed_output_rev) # (seq_len, bs, hid*2)
             raw_output_rev = raw_output_rev[:, :, raw_output_rev.size(-1)//2:] # (seq_len, bs, hid) - take the backwards half of output 
 
-            new_hidden.append(new_h)
-            new_hidden_rev.append(new_h_rev)
+            hidden.append(new_h)
+            hidden_rev.append(new_h_rev[1])
 
             raw_outputs.append(raw_output)
             raw_outputs_rev.append(raw_output_rev)
@@ -94,12 +94,9 @@ class Elmo(nn.Module):
                 raw_output_rev = self.lockdrop(raw_output_rev, self.dropouth)
                 outputs_rev.append(raw_output_rev)
 
-        hidden = new_hidden
-        hidden_rev = new_hidden_rev
-
         output = self.lockdrop(raw_output, self.dropout)
         outputs.append(output)
         output_rev = self.lockdrop(raw_output_rev, self.dropout)
         outputs_rev.append(output_rev)
         
-        return (output, output_rev), (hidden, hidden_rev), (raw_outputs, raw_outputs_rev), (outputs, outputs_rev), (emb, emb)
+        return (outputs, outputs_rev), (hidden, hidden_rev), emb

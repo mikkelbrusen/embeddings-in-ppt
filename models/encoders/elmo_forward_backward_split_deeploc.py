@@ -22,11 +22,9 @@ class Encoder(BaseEncoder):
     - **output** of shape (batch_size, seq_len, hidden_size*2 + 300) if arch is after/both else 
       (batch_size, seq_len, hidden_size*2)
   """
-  def __init__(self, args, elmo_layer, architecture):
+  def __init__(self, args, direction):
     super().__init__(args)
-    self.architecture = architecture
-    self.elmo_layer = elmo_layer
-
+    self.direction = direction
     
     self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
 
@@ -35,36 +33,14 @@ class Encoder(BaseEncoder):
     state_dict = rename_state_dict_keys(state_dict, key_transformation)
     self.elmo.load_state_dict(state_dict, strict=False)
 
-
-    if elmo_layer in ["2ndlast"]:
-      self.project = nn.Linear(2560, 300, bias=False)
-    elif elmo_layer in ["last"]:
-      self.project = nn.Linear(320*2, 300, bias=False)
-
-    if self.architecture in ["before", "both"]:
-      self.lstm = nn.LSTM(128+300, args.n_hid, bidirectional=True, batch_first=True)
-
   def forward(self, inp, seq_lengths):
     with torch.no_grad():
         (all_hid, all_hid_rev) , _, _ = self.elmo(inp, seq_lengths) # all_hid, last_hidden_states, emb
     
-    if self.elmo_layer == "last":
-      elmo_hid = all_hid[2]
-      elmo_hid_rev = all_hid_rev[2]
-
-      elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, 320) 
-      elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
-
-    elif self.elmo_layer == "2ndlast":
-      elmo_hid = all_hid[1]
-      elmo_hid_rev = all_hid_rev[1]
-
-      elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, 1280) 
-      elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, 1280) 
-    
-    elmo_hid = torch.cat((elmo_hid, elmo_hid_rev), dim=2) # (bs, seq_len, something big) 
-    elmo_hid = self.project(elmo_hid) # (bs, seq_len, 300) 
-    del elmo_hid_rev
+    if self.direction == "forward":
+      elmo_hid = all_hid[2].permute(1,0,2) # (bs, seq_len, 320) 
+    elif self.direction == "backward":
+      elmo_hid = all_hid_rev[2].permute(1,0,2) # (bs, seq_len, 320) 
     ### End Elmo 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
@@ -76,17 +52,13 @@ class Encoder(BaseEncoder):
     conv_cat = torch.cat([self.relu(conv(inp)) for conv in self.convs], dim=1) # (batch_size, emb_size*len(convs), seq_len)
     inp = self.relu(self.cnn_final(conv_cat)) #(batch_size, out_channels=128, seq_len)
 
-    inp = inp.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)
-    if self.architecture in ["before", "both"]:
-      inp = torch.cat((inp, elmo_hid), dim=2)
-      
-    inp = self.drop(inp) #( batch_size, seq_len, lstm_input_size)
+    inp = inp.permute(0, 2, 1) #(batch_size, seq_len, out_channels=128)      
+    inp = self.drop(inp) #( batch_size, seq_len, 128)
     
     pack = nn.utils.rnn.pack_padded_sequence(inp, seq_lengths, batch_first=True)
     packed_output, _ = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
-    if self.architecture in ["after", "both"]:
-      output = torch.cat((output, elmo_hid), dim=2) # (batch_size, seq_len, hidden_size*2+300)
+    output = torch.cat((output, elmo_hid), dim=2) # (batch_size, seq_len, hidden_size*2+320)
   
     return output

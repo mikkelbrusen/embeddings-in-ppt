@@ -15,7 +15,7 @@ class Encoder(nn.Module):
   Inputs: input, seq_len
     - **input** of shape:
   Outputs: output
-    - **output** is a tuple: (all_hid, last_hid, raw_all_hid, dropped_all_hid, emb) - NOT batch first
+    - **output** is a tuple: (all_hid, last_hidden_states, emb) - NOT batch first
   """
   def __init__(self, args):
     super().__init__()
@@ -30,6 +30,6 @@ class Encoder(nn.Module):
   def forward(self, inp, seq_lengths):
 
     with torch.no_grad():
-        all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
+        all_hid, last_hidden_states, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
     
-    return all_hid, last_hid, raw_all_hid, dropped_all_hid, emb
+    return all_hid, last_hidden_states, emb

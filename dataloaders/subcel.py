@@ -28,6 +28,16 @@ def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize,
   else:
     indices = np.arange(len(inputs))
 
+  # Shuffle the data of 3 batches together to avoid identical batches
+  if shuffle:
+    bucketsize = batchsize*3
+    num_buckets = len(inputs) // bucketsize
+    for i in range(num_buckets):
+      start = i*bucketsize
+      end = (i+1)*bucketsize
+      random.shuffle(indices[i*bucketsize:(i+1)*bucketsize])
+    random.shuffle(indices[num_buckets*bucketsize:])
+
   # Generate minibatches list
   f_idx = len(inputs) % batchsize
   idx_list = list(range(0, len(inputs) - batchsize + 1, batchsize))
