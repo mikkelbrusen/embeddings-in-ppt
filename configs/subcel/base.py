@@ -246,7 +246,7 @@ class Config(ConfigBase):
         if confusion_valid.accuracy() > best_val_acc:
           best_val_epoch = epoch
           best_val_acc = confusion_valid.accuracy()
-          save_model(best_val_model, self.args, index=i)
+          save_model(model, self.args, index=i)
 
         if best_val_acc > self.results.best_val_acc:
           self.results.best_val_acc = best_val_acc
