@@ -70,7 +70,7 @@ class AWD_Embedding(nn.Module):
         output = self.lockdrop(raw_output, self.dropout)
         outputs.append(output)
 
-        return output, hidden, raw_outputs, outputs, emb
+        return outputs, hidden, emb
 
 
     def init_hidden(self, bsz):

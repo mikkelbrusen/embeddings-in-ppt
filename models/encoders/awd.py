@@ -29,6 +29,6 @@ class Encoder(nn.Module):
   def forward(self, inp, seq_lengths):
 
     with torch.no_grad():
-      all_hid, last_hid, raw_all_hid, dropped_all_hid, emb = self.awd(input=inp, seq_lengths=seq_lengths)
+      outputs, hidden, emb = self.awd(input=inp, seq_lengths=seq_lengths)
     
-    return all_hid, last_hid, raw_all_hid, dropped_all_hid, emb
+    return outputs, hidden, emb

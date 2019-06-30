@@ -30,6 +30,6 @@ class Encoder(nn.Module):
   def forward(self, inp, seq_lengths):
 
     with torch.no_grad():
-        all_hid, last_hidden_states, emb = self.elmo(input=inp, seq_lengths=seq_lengths)
+        (outputs, outputs_rev), (hidden, hidden_rev), emb = self.elmo(input=inp, seq_lengths=seq_lengths)
     
-    return all_hid, last_hidden_states, emb
+    return (outputs, outputs_rev), (hidden, hidden_rev), emb
