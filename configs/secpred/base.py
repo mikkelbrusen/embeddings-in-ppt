@@ -212,9 +212,8 @@ class Config(ConfigBase):
     print("Model: ", model)
 
     best_val_acc = 0.0
-    best_val_loss = 0.0
+    best_val_loss = 100000000
     idx = 0
-    best_val_model = None
     for epoch in range(self.args.epochs):
         start_time = time.time()
         train_loss, train_accuracy = self.run_train(model=model)
@@ -223,8 +222,7 @@ class Config(ConfigBase):
             best_val_loss = val_loss
             best_val_acc = val_accuracy
             idx = epoch
-            best_val_model = copy.deepcopy(model)
-
+            save_model(model, self.args)
 
         print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs, time.time() - start_time), '-' * 22 )
         #Train
@@ -238,8 +236,6 @@ class Config(ConfigBase):
     print('| Valid | epoch {:3d} | acc {:.2f}%'
     ' |'.format(idx, best_val_acc*100))
     sys.stdout.flush()
-    save_model(best_val_model, self.args)
-
 
   def tester(self):
     model = self.Model(self.args).to(self.args.device)
