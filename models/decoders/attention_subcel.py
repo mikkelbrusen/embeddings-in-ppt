@@ -21,16 +21,15 @@ class Decoder(nn.Module):
     self.args = args
    
     self.attn = Attention(in_size=in_size, att_size=args.att_size)
-    self.in_drop = nn.Dropout2d(args.in_dropout1d)
+    self.drop = nn.Dropout(args.hid_dropout)
     self.label = nn.Linear(in_size, args.num_classes)
     self.mem = nn.Linear(in_size, 1)
 
     init_weights(self)
 
   def forward(self, inp, seq_lengths):    
-    output = self.in_drop(inp) #(batch_size, seq_len, in_size)
-    
-    attn_output, alpha = self.attn(x_in=output, seq_lengths=seq_lengths) #(batch_size, in_size)
+    attn_output, alpha = self.attn(x_in=inp, seq_lengths=seq_lengths) #(batch_size, in_size)
+    attn_output = self.drop(attn_output)
 
     out = self.label(attn_output) #(batch_size, num_classes)
     out_mem = torch.sigmoid(self.mem(attn_output)) #(batch_size, 1)

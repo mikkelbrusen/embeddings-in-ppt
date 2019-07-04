@@ -128,23 +128,24 @@ class ConfusionMatrix:
 
 	def matthews_correlation(self):
 		# Something is rotten here...
-		#tp, tn, fp, fn = self.get_errors()
-		#numerator = tp*tn - fp*fn
-		#denominator = np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn))
-		#res = numerator / denominator
-		#res = res[~np.isnan(res)]
-		#return res
-		tl, tr, bl, br = self.get_errors()
-		tp = tl[0]
-		fn = tr[0]
-		fp = bl[0]
-		tn = br[0]
-
+		tp, tn, fp, fn = self.get_errors()
 		numerator = tp*tn - fp*fn
 		denominator = np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn))
 		res = numerator / denominator
 		res = res[~np.isnan(res)]
 		return res
+
+		#tl, tr, bl, br = self.get_errors()
+		#tp = tl[0]
+		#fn = tr[0]
+		#fp = bl[0]
+		#tn = br[0]
+
+		#numerator = tp*tn - fp*fn
+		#denominator = np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn))
+		#res = numerator / denominator
+		#res = res[~np.isnan(res)]
+		#return res
 
 	def OMCC(self):
 		tp, tn, fp, fn = self.get_errors()
