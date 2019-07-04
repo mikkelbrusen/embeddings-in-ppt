@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.utils import rename_state_dict_keys
+from utils.utils import rename_state_dict_keys, init_weights
 from models.utils.elmo_model import Elmo, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
@@ -27,15 +27,6 @@ class Encoder(BaseEncoder):
     self.architecture = architecture
     self.elmo_layer = elmo_layer
 
-    
-    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-
-    with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
-      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    state_dict = rename_state_dict_keys(state_dict, key_transformation)
-    self.elmo.load_state_dict(state_dict, strict=False)
-
-
     if elmo_layer in ["2ndlast"]:
       self.project = nn.Linear(2560, 300, bias=False)
     elif elmo_layer in ["last"]:
@@ -43,6 +34,15 @@ class Encoder(BaseEncoder):
 
     if self.architecture in ["before", "both"]:
       self.lstm = nn.LSTM(128+300, args.n_hid, bidirectional=True, batch_first=True)
+
+    init_weights(self)
+
+    with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
+      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+    state_dict = rename_state_dict_keys(state_dict, key_transformation)
+
+    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.elmo.load_state_dict(state_dict, strict=False)
 
   def forward(self, inp, seq_lengths):
     with torch.no_grad():

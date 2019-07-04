@@ -20,11 +20,11 @@ class Encoder(nn.Module):
   def __init__(self, args):
     super().__init__()
 
-    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-
     with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
       state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
     state_dict = rename_state_dict_keys(state_dict, key_transformation)
+
+    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
     self.elmo.load_state_dict(state_dict, strict=False)
 
   def forward(self, inp, seq_lengths):

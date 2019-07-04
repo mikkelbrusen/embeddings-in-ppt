@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.utils import init_weights
 from models.utils.awd_model import AWD_Embedding
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
@@ -20,12 +21,6 @@ class Encoder(BaseEncoder):
     super().__init__(args)
     self.awd_layer = awd_layer
     self.architecture = architecture
-    self.awd = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-
-    # load pretrained awd
-    with open("pretrained_models/awd_lstm/test_v2_statedict.pt", 'rb') as f:
-        state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    self.awd.load_state_dict(state_dict)
 
     if awd_layer in ["2ndlast"]:
       self.project = nn.Linear(1280, 300, bias=False)
@@ -35,6 +30,14 @@ class Encoder(BaseEncoder):
     if self.architecture in ["before", "both"]:
       self.lstm = nn.LSTM(128+300, args.n_hid, bidirectional=True, batch_first=True)
 
+    init_weights(self)
+
+    # load pretrained awd
+    with open("pretrained_models/awd_lstm/test_v2_statedict.pt", 'rb') as f:
+        state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+        
+    self.awd = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.awd.load_state_dict(state_dict)
 
   def forward(self, inp, seq_lengths):
     #### AWD 

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.utils import init_weights
 from models.utils.attention import Attention
 
 
@@ -25,6 +26,9 @@ class Decoder(nn.Module):
     self.bn = nn.BatchNorm1d(32)
     self.label = nn.Linear(32, args.num_classes)
     self.mem = nn.Linear(32, 1)
+
+    init_weights(self)
+    
 
   def forward(self, inp):    
     output = self.bn(self.relu(self.drop(self.linear(inp))))
