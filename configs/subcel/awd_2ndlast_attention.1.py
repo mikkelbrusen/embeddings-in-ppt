@@ -2,8 +2,8 @@ import torch.nn as nn
 
 from configs.subcel.base import Config as BaseConfig
 
-from models.encoders.bi_awd_lstm import Encoder
-from models.decoders.deeploc_subcel import Decoder
+from models.encoders.awd import Encoder
+from models.decoders.attention_subcel import Decoder
 
 class Model(nn.Module):
   def __init__(self, args):
@@ -11,10 +11,14 @@ class Model(nn.Module):
 
     self.args = args
     self.encoder = Encoder(args)
-    self.decoder = Decoder(args, in_size=args.n_hid*2)
+    self.decoder = Decoder(args, in_size=1280)
 
   def forward(self, inp, seq_len):
-    output = self.encoder(inp, seq_len)
+    output, _, _ = self.encoder(inp, seq_len)
+
+    #perform a permutation of the output since the decoder needs it batch first
+    output = output[1].permute(1,0,2) # (bs, seq_len, 1280)
+
     output = self.decoder(output, seq_len)
     return output
 

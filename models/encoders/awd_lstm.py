@@ -13,6 +13,7 @@ class Encoder(nn.Module):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
+    -- awd_layer: last or 2ndlast
     -- project_size: size of projection layer from elmo to lstm
 
   Inputs: input, seq_len
@@ -20,16 +21,24 @@ class Encoder(nn.Module):
   Outputs: output
     - **output** of shape (batch_size, seq_len, hidden_size*2)
   """
-  def __init__(self, args, project_size=None):
+  def __init__(self, args, awd_layer, project_size=None):
     super().__init__()
     self.args = args
+    self.awd_layer = awd_layer
     self.project_size = project_size
     self.drop = nn.Dropout(args.hid_dropout)
 
-    if project_size is not None:
+    if project_size is not None and awd_layer in ["2ndlast"]:
       self.project = nn.Linear(1280, project_size, bias=False)
+    elif project_size is not None and awd_layer in ["last"]:
+      self.project = nn.Linear(320, project_size, bias=False)
 
-    self.lstm = nn.LSTM(project_size if project_size is not None else 1280, args.n_hid, bidirectional=True, batch_first=True)
+    if project_size is not None:
+      self.lstm = nn.LSTM(project_size, args.n_hid, bidirectional=True, batch_first=True)
+    elif awd_layer in ["2ndlast"]:
+      self.lstm = nn.LSTM(1280, args.n_hid, bidirectional=True, batch_first=True)
+    elif awd_layer in ["last"]:
+      self.lstm = nn.LSTM(320, args.n_hid, bidirectional=True, batch_first=True)
 
     init_weights(self)
         
@@ -41,7 +50,13 @@ class Encoder(nn.Module):
     with torch.no_grad():
       all_hid, _, _ = self.awd(input=inp, seq_lengths=seq_lengths)
 
-    awd_hid = all_hid[1].permute(1,0,2) # (bs, seq_len, 1280)
+    if self.awd_layer == "last":
+      awd_hid = all_hid[2]
+      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
+
+    elif self.awd_layer == "2ndlast":
+      awd_hid = all_hid[1]
+      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
 
     if self.project_size is not None:
       awd_hid = self.project(awd_hid) # (bs, seq_len, project_size) 
