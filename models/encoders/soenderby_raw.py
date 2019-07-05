@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils.utils import init_weights
 
 
 class Encoder(nn.Module):
@@ -15,27 +16,15 @@ class Encoder(nn.Module):
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
 
+    init_weights(self)
     self.init_weights()
-
-    
+  
   def init_weights(self):
     self.densel1.bias.data.zero_()
     torch.nn.init.xavier_uniform_(tensor=self.densel1.weight.data, gain=1.0)
 
     self.densel2.bias.data.zero_()
     torch.nn.init.xavier_uniform_(tensor=self.densel2.weight.data, gain=1.0)
-
-    for m in self.modules():
-      if type(m) in [nn.GRU, nn.LSTM, nn.RNN]:
-        for name, param in m.named_parameters():
-      #        if 'weight_ih' in name:
-      #            torch.nn.init.orthogonal_(param.data, gain=1)
-      #        elif 'weight_hh' in name:
-      #            torch.nn.init.orthogonal_(param.data, gain=1)
-          if 'bias_ih' in name:
-              param.data.zero_()
-          elif 'bias_hh' in name:
-              param.data.zero_()
     
   def forward(self, inp, seq_lengths):
     inp = inp.long()

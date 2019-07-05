@@ -11,9 +11,9 @@ class Encoder(nn.Module):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- awd_layer: last or 2ndlast
+    -- awd_layer: last or second
     -- project_size: size of projection layer from elmo to lstm
-
+second
   Inputs: input, seq_len
     - **input** of shape
   Outputs: output
@@ -26,14 +26,14 @@ class Encoder(nn.Module):
     self.project_size = project_size
     self.drop = nn.Dropout(args.hid_dropout)
 
-    if project_size is not None and awd_layer in ["2ndlast"]:
+    if project_size is not None and awd_layer in ["second"]:
       self.project = nn.Linear(1280, project_size, bias=False)
     elif project_size is not None and awd_layer in ["last"]:
       self.project = nn.Linear(320, project_size, bias=False)
 
     if project_size is not None:
       self.lstm = nn.LSTM(project_size, args.n_hid, bidirectional=True, batch_first=True)
-    elif awd_layer in ["2ndlast"]:
+    elif awd_layer in ["second"]:
       self.lstm = nn.LSTM(1280, args.n_hid, bidirectional=True, batch_first=True)
     elif awd_layer in ["last"]:
       self.lstm = nn.LSTM(320, args.n_hid, bidirectional=True, batch_first=True)
@@ -52,7 +52,7 @@ class Encoder(nn.Module):
       awd_hid = all_hid[2]
       awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
 
-    elif self.awd_layer == "2ndlast":
+    elif self.awd_layer == "second":
       awd_hid = all_hid[1]
       awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
 

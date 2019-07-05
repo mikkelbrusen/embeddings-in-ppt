@@ -13,7 +13,7 @@ class Encoder(BaseEncoder):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- bi_awd_layer: last or 2ndlast
+    -- bi_awd_layer: last or second
     -- architecture: before, after or both
 
   Inputs: input, seq_len

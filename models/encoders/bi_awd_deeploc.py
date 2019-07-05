@@ -13,7 +13,7 @@ class Encoder(BaseEncoder):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- bi_awd_layer: last or 2ndlast
+    -- bi_awd_layer: last or second
     -- architecture: before, after or both
 
   Inputs: input, seq_len
@@ -27,7 +27,7 @@ class Encoder(BaseEncoder):
     self.architecture = architecture
     self.bi_awd_layer = bi_awd_layer
 
-    if bi_awd_layer in ["2ndlast"]:
+    if bi_awd_layer in ["second"]:
       self.project = nn.Linear(2560, 300, bias=False)
     elif bi_awd_layer in ["last"]:
       self.project = nn.Linear(320*2, 300, bias=False)
@@ -51,7 +51,7 @@ class Encoder(BaseEncoder):
       elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, 320) 
       elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
 
-    elif self.bi_awd_layer == "2ndlast":
+    elif self.bi_awd_layer == "second":
       elmo_hid = all_hid[1]
       elmo_hid_rev = all_hid_rev[1]
 
