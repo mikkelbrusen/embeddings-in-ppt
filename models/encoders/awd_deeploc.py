@@ -7,7 +7,6 @@ from utils.utils import init_weights
 from models.utils.awd_model import AWDEmbedding
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
-
 class Encoder(BaseEncoder):
   """
   Encoder

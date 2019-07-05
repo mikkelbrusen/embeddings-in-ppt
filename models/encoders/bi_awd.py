@@ -5,8 +5,6 @@ import torch.nn.functional as F
 
 from utils.utils import rename_state_dict_keys
 from models.utils.bi_awd_model import BiAWDEmbedding, key_transformation
-from models.encoders.deeploc_raw import Encoder as BaseEncoder
-
 
 class Encoder(nn.Module):
   """

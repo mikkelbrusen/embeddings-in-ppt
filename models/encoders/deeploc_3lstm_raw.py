@@ -3,9 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.utils.bi_awd_model import BiAWDEmbedding, key_transformation
 from utils.utils import init_weights
-
 
 class Encoder(nn.Module):
   """
