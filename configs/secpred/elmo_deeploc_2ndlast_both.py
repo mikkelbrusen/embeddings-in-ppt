@@ -2,14 +2,14 @@ import torch.nn as nn
 
 from configs.secpred.base import Config as BaseConfig
 
-from models.encoders.elmo_deeploc import Encoder
+from models.encoders.bi_awd_deeploc import Encoder
 from models.decoders.lstm_mlp2 import Decoder
 
 class Model(nn.Module):
   def __init__(self, args):
     super().__init__()
     self.args = args
-    self.encoder = Encoder(args=args, elmo_layer="2ndlast", architecture="both")
+    self.encoder = Encoder(args=args, bi_awd_layer="2ndlast", architecture="both")
     self.decoder = Decoder(args=args, in_size=args.n_hid*2+300)
 
   def forward(self, inp, seq_len):

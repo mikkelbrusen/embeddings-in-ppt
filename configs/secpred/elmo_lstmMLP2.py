@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from configs.secpred.base import Config as BaseConfig
 
-from models.encoders.elmo import Encoder
+from models.encoders.bi_awd import Encoder
 from models.decoders.lstm_mlp2 import Decoder
 
 import torch
@@ -26,7 +26,7 @@ class Model(nn.Module):
     
     elmo_hid = torch.cat((elmo_hid, elmo_hid_rev), dim=2) # (bs, seq_len, something big) 
     del elmo_hid_rev
-    ### End Elmo 
+    ### End BiAWDEmbedding 
     output = self.decoder(elmo_hid, seq_len)
     return output
 

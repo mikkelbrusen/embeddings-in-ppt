@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from configs.subcel.base import Config as BaseConfig
 
-from models.encoders.elmo_deeploc import Encoder
+from models.encoders.bi_awd_deeploc import Encoder
 from models.decoders.deeploc_subcel import Decoder
 
 class Model(nn.Module):
@@ -10,7 +10,7 @@ class Model(nn.Module):
     super().__init__()
 
     self.args = args
-    self.encoder = Encoder(args, elmo_layer="2ndlast", architecture="before")
+    self.encoder = Encoder(args, bi_awd_layer="2ndlast", architecture="before")
     self.decoder = Decoder(args, in_size=args.n_hid*2)
 
   def forward(self, inp, seq_len):

@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 
-from pretrained_models.elmo.weight_drop import WeightDrop
-from pretrained_models.elmo.embed_regularize import embedded_dropout
-from pretrained_models.elmo.locked_dropout import LockedDropout
+from utils.utils import rename_state_dict_keys
+
+from pretrained_models.bi_awd_lstm.weight_drop import WeightDrop
+from pretrained_models.bi_awd_lstm.embed_regularize import embedded_dropout
+from pretrained_models.bi_awd_lstm.locked_dropout import LockedDropout
 
 # Used in a configuration by rename_state_dict_keys function to adapt from 2xlstm to 1xlstm 1xbilstm
 def key_transformation(old_key: str):
@@ -15,11 +17,11 @@ def key_transformation(old_key: str):
 
     return old_key
 
-class Elmo(nn.Module):
+class BiAWDEmbedding(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, ntoken, ninp, nhid, nlayers, dropout=0.1, dropouth=0.1, dropouti=0.1, dropoute=0.1, wdrop=0.1, tie_weights=False):
-        super(Elmo, self).__init__()
+        super(BiAWDEmbedding, self).__init__()
         self.lockdrop = LockedDropout()
         self.idrop = nn.Dropout(dropouti)
         self.hdrop = nn.Dropout(dropouth)
@@ -55,6 +57,12 @@ class Elmo(nn.Module):
         self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
+    
+    def load_pretrained(self, path="pretrained_models/bi_awd_lstm/elmo_parameters_statedict.pt"):
+        with open(path, 'rb') as f:
+            state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+        state_dict = rename_state_dict_keys(state_dict, key_transformation)
+        self.load_state_dict(state_dict, strict=False)
 
     def forward(self, input, seq_lengths):
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)

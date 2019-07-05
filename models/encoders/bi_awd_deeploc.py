@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.utils import rename_state_dict_keys, init_weights
-from models.utils.elmo_model import Elmo, key_transformation
+from models.utils.bi_awd_model import BiAWDEmbedding, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
@@ -13,7 +13,7 @@ class Encoder(BaseEncoder):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- elmo_layer: last or 2ndlast
+    -- bi_awd_layer: last or 2ndlast
     -- architecture: before, after or both
 
   Inputs: input, seq_len
@@ -22,14 +22,14 @@ class Encoder(BaseEncoder):
     - **output** of shape (batch_size, seq_len, hidden_size*2 + 300) if arch is after/both else 
       (batch_size, seq_len, hidden_size*2)
   """
-  def __init__(self, args, elmo_layer, architecture):
+  def __init__(self, args, bi_awd_layer, architecture):
     super().__init__(args)
     self.architecture = architecture
-    self.elmo_layer = elmo_layer
+    self.bi_awd_layer = bi_awd_layer
 
-    if elmo_layer in ["2ndlast"]:
+    if bi_awd_layer in ["2ndlast"]:
       self.project = nn.Linear(2560, 300, bias=False)
-    elif elmo_layer in ["last"]:
+    elif bi_awd_layer in ["last"]:
       self.project = nn.Linear(320*2, 300, bias=False)
 
     if self.architecture in ["before", "both"]:
@@ -37,25 +37,21 @@ class Encoder(BaseEncoder):
 
     init_weights(self)
 
-    with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
-      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    state_dict = rename_state_dict_keys(state_dict, key_transformation)
-
-    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-    self.elmo.load_state_dict(state_dict, strict=False)
+    self.bi_awd = BiAWDEmbedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.bi_awd.load_pretrained()
 
   def forward(self, inp, seq_lengths):
     with torch.no_grad():
-        (all_hid, all_hid_rev) , _, _ = self.elmo(inp, seq_lengths) # all_hid, last_hidden_states, emb
+        (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
     
-    if self.elmo_layer == "last":
+    if self.bi_awd_layer == "last":
       elmo_hid = all_hid[2]
       elmo_hid_rev = all_hid_rev[2]
 
       elmo_hid = elmo_hid.permute(1,0,2) # (bs, seq_len, 320) 
       elmo_hid_rev = elmo_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
 
-    elif self.elmo_layer == "2ndlast":
+    elif self.bi_awd_layer == "2ndlast":
       elmo_hid = all_hid[1]
       elmo_hid_rev = all_hid_rev[1]
 
@@ -65,7 +61,7 @@ class Encoder(BaseEncoder):
     elmo_hid = torch.cat((elmo_hid, elmo_hid_rev), dim=2) # (bs, seq_len, something big) 
     elmo_hid = self.project(elmo_hid) # (bs, seq_len, 300) 
     del elmo_hid_rev
-    ### End Elmo 
+    ### End BiAWDEmbedding 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 

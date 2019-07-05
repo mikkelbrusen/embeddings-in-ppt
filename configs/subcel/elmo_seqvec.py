@@ -4,7 +4,7 @@ import torch.nn as nn
 from utils.utils import length_to_mask
 from configs.subcel.base import Config as BaseConfig
 
-from models.encoders.elmo import Encoder
+from models.encoders.bi_awd import Encoder
 from models.decoders.seqvec_subcel import Decoder
 
 class Model(nn.Module):

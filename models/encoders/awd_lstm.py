@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.utils import init_weights
-from models.utils.awd_model import AWD_Embedding
+from models.utils.awd_model import AWDEmbedding
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
@@ -32,13 +32,9 @@ class Encoder(nn.Module):
     self.lstm = nn.LSTM(project_size if project_size is not None else 1280, args.n_hid, bidirectional=True, batch_first=True)
 
     init_weights(self)
-
-    # load pretrained awd
-    with open("pretrained_models/awd_lstm/test_v2_statedict.pt", 'rb') as f:
-        state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
         
-    self.awd = AWD_Embedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-    self.awd.load_state_dict(state_dict)
+    self.awd = AWDEmbedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.awd.load_pretrained()
 
   def forward(self, inp, seq_lengths):
     #### AWD 

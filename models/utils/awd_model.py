@@ -5,11 +5,11 @@ from pretrained_models.awd_lstm.weight_drop import WeightDrop
 from pretrained_models.awd_lstm.embed_regularize import embedded_dropout
 from pretrained_models.awd_lstm.locked_dropout import LockedDropout
 
-class AWD_Embedding(nn.Module):
+class AWDEmbedding(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, ntoken, ninp, nhid, nlayers, dropout=0.1, dropouth=0.1, dropouti=0.1, dropoute=0.1, wdrop=0.1, tie_weights=False):
-        super(AWD_Embedding, self).__init__()
+        super(AWDEmbedding, self).__init__()
         
         self.lockdrop = LockedDropout()
         self.idrop = nn.Dropout(dropouti)
@@ -42,6 +42,12 @@ class AWD_Embedding(nn.Module):
         self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def load_pretrained(self, path="pretrained_models/awd_lstm/test_v2_statedict.pt"):
+        with open(path, 'rb') as f:
+            state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.load_state_dict(state_dict)
 
     def forward(self, input, seq_lengths):
         emb = embedded_dropout(self.encoder, input, dropout=self.dropoute if self.training else 0) # (bs, seq_len, emb_size)

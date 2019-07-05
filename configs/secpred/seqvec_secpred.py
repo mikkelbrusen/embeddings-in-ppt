@@ -3,7 +3,7 @@ import torch
 
 from configs.secpred.base import Config as BaseConfig
 
-from models.encoders.elmo import Encoder
+from models.encoders.bi_awd import Encoder
 from models.decoders.seqvec_secpred import Decoder
 
 class Model(nn.Module):

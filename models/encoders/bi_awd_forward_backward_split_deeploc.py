@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.utils import rename_state_dict_keys
-from models.utils.elmo_model import Elmo, key_transformation
+from models.utils.bi_awd_model import BiAWDEmbedding, key_transformation
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 
@@ -13,7 +13,7 @@ class Encoder(BaseEncoder):
   Encoder with elmo concatenated to the LSTM output
 
   Parameters:
-    -- elmo_layer: last or 2ndlast
+    -- bi_awd_layer: last or 2ndlast
     -- architecture: before, after or both
 
   Inputs: input, seq_len
@@ -25,23 +25,19 @@ class Encoder(BaseEncoder):
   def __init__(self, args, direction):
     super().__init__(args)
     self.direction = direction
-    
-    with open("pretrained_models/elmo/elmo_parameters_statedict.pt", 'rb') as f:
-      state_dict = torch.load(f, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-    state_dict = rename_state_dict_keys(state_dict, key_transformation)
 
-    self.elmo = Elmo(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
-    self.elmo.load_state_dict(state_dict, strict=False)
+    self.bi_awd = BiAWDEmbedding(ntoken=21, ninp=320, nhid=1280, nlayers=3, tie_weights=True)
+    self.bi_awd.load_pretrained()
 
   def forward(self, inp, seq_lengths):
     with torch.no_grad():
-        (all_hid, all_hid_rev) , _, _ = self.elmo(inp, seq_lengths) # all_hid, last_hidden_states, emb
+        (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
     
     if self.direction == "forward":
       elmo_hid = all_hid[2].permute(1,0,2) # (bs, seq_len, 320) 
     elif self.direction == "backward":
       elmo_hid = all_hid_rev[2].permute(1,0,2) # (bs, seq_len, 320) 
-    ### End Elmo 
+    ### End BiAWDEmbedding 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
 

@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from configs.subcel.base import Config as BaseConfig
 
-from models.encoders.elmo_forward_backward_split_deeploc import Encoder
+from models.encoders.bi_awd_forward_backward_split_deeploc import Encoder
 from models.decoders.deeploc_subcel import Decoder
 
 class Model(nn.Module):

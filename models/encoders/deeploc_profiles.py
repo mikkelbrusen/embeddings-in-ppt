@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.encoders.deeploc_raw import Encoder as BaseEncoder
-from models.utils.elmo_model import Elmo, key_transformation
+from models.utils.bi_awd_model import BiAWDEmbedding, key_transformation
 
 
 class Encoder(BaseEncoder):

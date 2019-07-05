@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from configs.secpred.base import Config as BaseConfig
 
-from models.encoders.elmo_lstm import Encoder
+from models.encoders.bi_awd_lstm import Encoder
 from models.decoders.lstm_mlp2 import Decoder
 
 class Model(nn.Module):
