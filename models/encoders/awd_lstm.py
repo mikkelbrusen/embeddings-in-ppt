@@ -8,11 +8,11 @@ from models.utils.awd_model import AWDEmbedding
 
 class Encoder(nn.Module):
   """
-  Encoder with elmo concatenated to the LSTM output
+  Encoder with bi_awd concatenated to the LSTM output
 
   Parameters:
     -- awd_layer: last or second
-    -- project_size: size of projection layer from elmo to lstm
+    -- project_size: size of projection layer from bi_awd to lstm
 second
   Inputs: input, seq_len
     - **input** of shape

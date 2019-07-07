@@ -10,7 +10,7 @@ from models.encoders.deeploc_raw import Encoder as BaseEncoder
 
 class Encoder(BaseEncoder):
   """
-  Encoder with elmo concatenated to the LSTM output
+  Encoder with bi_awd concatenated to the LSTM output
 
   Parameters:
     -- bi_awd_layer: last or second
@@ -34,9 +34,9 @@ class Encoder(BaseEncoder):
         (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
     
     if self.direction == "forward":
-      elmo_hid = all_hid[2].permute(1,0,2) # (bs, seq_len, 320) 
+      bi_awd_hid = all_hid[2].permute(1,0,2) # (bs, seq_len, 320) 
     elif self.direction == "backward":
-      elmo_hid = all_hid_rev[2].permute(1,0,2) # (bs, seq_len, 320) 
+      bi_awd_hid = all_hid_rev[2].permute(1,0,2) # (bs, seq_len, 320) 
     ### End BiAWDEmbedding 
     
     inp = self.embed(inp) # (batch_size, seq_len, emb_size)
@@ -55,6 +55,6 @@ class Encoder(BaseEncoder):
     packed_output, _ = self.lstm(pack) #h = (2, batch_size, hidden_size)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) #(batch_size, seq_len, hidden_size*2)
 
-    output = torch.cat((output, elmo_hid), dim=2) # (batch_size, seq_len, hidden_size*2+320)
+    output = torch.cat((output, bi_awd_hid), dim=2) # (batch_size, seq_len, hidden_size*2+320)
   
     return output
