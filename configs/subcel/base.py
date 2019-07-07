@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+
 from dataloaders.subcel import iterate_minibatches
 from models.utils.attention import Attention, MultiStepAttention
 from utils.data_utils import tokenize_sequence
@@ -145,6 +146,7 @@ class Config(ConfigBase):
       loss.backward()
       torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.clip)
       optimizer.step()
+
       train_err += loss.item()
       train_batches += 1 
 
@@ -167,7 +169,6 @@ class Config(ConfigBase):
         (output, output_mem), alphas = model(inputs, seq_lengths)
 
         loss = self._calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_valid, confusion_mem_valid)
-
         val_err += loss.item()
         val_batches += 1
 
@@ -197,7 +198,6 @@ class Config(ConfigBase):
         output_mem = torch.div(output_mem,len(models))
 
         loss = self._calculate_loss_and_accuracy(output, output_mem, targets, targets_mem, unk_mem, confusion_valid, confusion_mem_valid)
-
         val_err += loss.item()
         val_batches += 1
 
@@ -207,9 +207,15 @@ class Config(ConfigBase):
   def trainer(self):
     (X_train, y_train, mask_train, partition, mem_train, unk_train) = self.traindata
     best_val_accs = []
+    best_val_mem_accs = []
+    best_val_mccs = []
+    best_val_gorodkins = []
 
     for i in range(1,5):
       best_val_acc = 0
+      best_val_mem_acc = 0
+      best_val_mcc = -1
+      best_val_gorodkin = -1
       best_val_epoch = 0
       best_val_model = None
 
@@ -246,28 +252,37 @@ class Config(ConfigBase):
         if confusion_valid.accuracy() > best_val_acc:
           best_val_epoch = epoch
           best_val_acc = confusion_valid.accuracy()
+          best_val_mem_acc = confusion_mem_valid.accuracy()
+          best_val_gorodkin = gorodkin(confusion_valid.ret_mat())
+          best_val_mcc = confusion_mem_valid.MCC()
           save_model(model, self.args, index=i)
 
         if best_val_acc > self.results.best_val_acc:
           self.results.best_val_acc = best_val_acc
         
-        print('-' * 22, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs-1, time.time() - start_time), '-' * 23 )
-        print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | MMC {:2.2f}' 
-              ' |'.format(train_loss, confusion_train.accuracy()*100, confusion_mem_train.accuracy()*100, gorodkin(confusion_train.ret_mat()), IC(confusion_train.ret_mat())))
-        print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.2f} | MMC {:2.2f}' 
-              ' |'.format(val_loss, confusion_valid.accuracy()*100, confusion_mem_valid.accuracy()*100, gorodkin(confusion_valid.ret_mat()), IC(confusion_valid.ret_mat())))
-        print('-' * 80)
+        print('-' * 24, ' epoch: {:3d} / {:3d} - time: {:5.2f}s '.format(epoch, self.args.epochs-1, time.time() - start_time), '-' * 25 )
+        print('| Train | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.4f} | MCC {:2.4f}' 
+              ' |'.format(train_loss, confusion_train.accuracy()*100, confusion_mem_train.accuracy()*100, gorodkin(confusion_train.ret_mat()), confusion_mem_train.MCC()))
+        print('| Valid | loss {:.4f} | acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.4f} | MCC {:2.4f}' 
+              ' |'.format(val_loss, confusion_valid.accuracy()*100, confusion_mem_valid.accuracy()*100, gorodkin(confusion_valid.ret_mat()), confusion_mem_valid.MCC()))
+        print('-' * 84)
         
         sys.stdout.flush()
         torch.cuda.empty_cache()
 
-      print('|', ' ' * 15, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc*100, best_val_epoch), ' ' * 15, '|')
-      print('-' * 80)
+      print('|', ' ' * 17, 'Best accuracy: {:.2f}% found after {:3d} epochs'.format(best_val_acc*100, best_val_epoch), ' ' * 17, '|')
+      print('|', ' '* 17, 'Mem acc {:.2f}% | Gorodkin {:2.4f} | MCC {:2.4f}'.format(best_val_mem_acc*100, best_val_gorodkin, best_val_mcc) , ' '*16, '|' )
+      print('-' * 84)
       best_val_accs.append(best_val_acc)
+      best_val_mem_accs.append(best_val_mem_acc)
+      best_val_gorodkins.append(best_val_gorodkin)
+      best_val_mccs.append(best_val_mcc)
 
-    for i, acc in enumerate(best_val_accs):
-      print("Partion {:1d} : acc {:.2f}%".format(i, acc*100))
-    print("Average validation accuracy {:.2f}% \n".format((sum(best_val_accs)/len(best_val_accs))*100))
+    for i, _ in enumerate(best_val_accs):
+      print("Partion {:1d} : acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.4f} | MCC {:2.4f}".format(
+        i, best_val_accs[i]*100, best_val_mem_accs[i]*100, best_val_gorodkins[i], best_val_mccs[i]))
+    print("\nAverage is: acc {:.2f}% | mem_acc {:.2f}% | Gorodkin {:2.4f} | MCC {:2.4f} \n".format(
+      (sum(best_val_accs)/len(best_val_accs))*100, sum(best_val_mem_accs)/len(best_val_accs)*100, sum(best_val_gorodkins)/len(best_val_accs), sum(best_val_mccs)/len(best_val_accs)))
 
 
   def tester(self):
@@ -288,7 +303,7 @@ class Config(ConfigBase):
     print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
     print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
     print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
-    print("test mem MMC:\t\t{:.2f}".format(confusion_mem_test.matthews_correlation()[0]))
+    print("test mem MCC:\t\t{:.2f}".format(confusion_mem_test.MCC()))
 
     self.results.set_final(
       alph = alphas.cpu().detach().numpy(), 
