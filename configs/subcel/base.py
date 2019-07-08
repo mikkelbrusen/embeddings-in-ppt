@@ -183,7 +183,7 @@ class Config(ConfigBase):
 
     with torch.no_grad():
       # Generate minibatches and train on each one of them	
-      # 71 is a hack to hit the an batch size that goes up in 2769 which is the amount of test data
+      # 71 is a hack to hit the an batch size that goes up in 2769 which is the amount of test data in raw dataset
       for batch in iterate_minibatches(X, y, mask, mem, unk, 71, sort_len=False, shuffle=False, sample_last_batch=False):
         inputs, seq_lengths, in_masks, targets, targets_mem, unk_mem = self._prepare_tensors(batch)
 
