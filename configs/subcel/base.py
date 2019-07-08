@@ -302,9 +302,9 @@ class Config(ConfigBase):
     print(confusion_test)
     print(confusion_mem_test)
     print("test accuracy:\t\t{:.2f} %".format(confusion_test.accuracy() * 100))
-    print("test Gorodkin:\t\t{:.2f}".format(gorodkin(confusion_test.ret_mat())))
+    print("test Gorodkin:\t\t{:.4f}".format(gorodkin(confusion_test.ret_mat())))
     print("test mem accuracy:\t{:.2f} %".format(confusion_mem_test.accuracy() * 100))
-    print("test mem MCC:\t\t{:.2f}".format(confusion_mem_test.MCC()))
+    print("test mem MCC:\t\t{:.4f}".format(confusion_mem_test.MCC()))
 
     self.results.set_final(
       alph = alphas.cpu().detach().numpy(), 
