@@ -191,7 +191,7 @@ def save_model(model, args, index=1):
 
 def load_model(model, args, index=1):
     path = "save/{}/{}/model_{}.pt".format(args.parser_name, args.config, index)
-    model.load_state_dict(torch.load(path, map_location='cuda' if torch.cuda.is_available() else 'cpu'))
+    model.load_state_dict(torch.load(path, map_location='cuda' if torch.cuda.is_available() else 'cpu'), strict=False)
 
 def save_results(results, args):
     path = "save/{}/{}/results.pickle".format(args.parser_name, args.config)
