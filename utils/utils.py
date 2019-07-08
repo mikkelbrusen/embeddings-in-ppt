@@ -134,9 +134,10 @@ def rename_state_dict_keys(state_dict, key_transformation):
     key_transformation -> Function that accepts the old key names of the state
                           dict as the only argument and returns the new key name.
     Example:
-    Rename the key `layer.0.weight` `layer.1.weight` and keep the names of all
+    Rename the key `layer.0.weight` to `layer.1.weight` and keep the names of all
     other keys.
-    ```py
+    
+    ```
     def key_transformation(old_key):
         if old_key == "layer.0.weight":
             return "layer.1.weight"
