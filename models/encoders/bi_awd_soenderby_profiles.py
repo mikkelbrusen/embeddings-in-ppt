@@ -10,6 +10,8 @@ class Encoder(nn.Module):
   def __init__(self, args, bi_awd_layer, architecture):
     super().__init__()
     self.args = args
+    self.bi_awd_layer = bi_awd_layer
+    self.architecture = architecture
     self.densel1 = nn.Linear(self.args.n_features, self.args.n_l1)
     self.densel2 = nn.Linear(self.args.n_l1, self.args.n_l1)
     self.bi_rnn = nn.LSTM(input_size=self.args.n_l1+self.args.n_features, hidden_size=self.args.n_hid, num_layers=3, bidirectional=True, batch_first=True)
@@ -22,7 +24,7 @@ class Encoder(nn.Module):
       self.project = nn.Linear(320*2, 300, bias=False)
 
     if self.architecture in ["before", "both"]:
-      self.lstm = nn.LSTM(128+300, args.n_hid, bidirectional=True, batch_first=True)
+      self.bi_rnn = nn.LSTM(input_size=self.args.n_l1+self.args.n_features+300, hidden_size=self.args.n_hid, num_layers=3, bidirectional=True, batch_first=True)
 
     init_weights(self)
     self.init_weights()
@@ -37,11 +39,10 @@ class Encoder(nn.Module):
     self.densel2.bias.data.zero_()
     torch.nn.init.xavier_uniform_(tensor=self.densel2.weight.data, gain=1.0)
     
-  def forward(self, inp, seq_lengths):
+  def forward(self, inp, raw, seq_lengths):
     #Something like this. Look into it when needed
-    profiles, raw = inp
     with torch.no_grad():
-      (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
+      (all_hid, all_hid_rev) , _, _ = self.bi_awd(raw, seq_lengths) # all_hid, last_hidden_states, emb
     
     if self.bi_awd_layer == "last":
       bi_awd_hid = all_hid[2]
@@ -63,10 +64,10 @@ class Encoder(nn.Module):
     ### End BiAWDEmbedding
 
     x = self.relu(self.densel2(self.relu(self.densel1(inp))))
-    x = torch.cat((inp,x), dim=2)
+    inp = torch.cat((inp,x), dim=2)
     if self.architecture in ["before", "both"]:
-      inp = torch.cat((x, bi_awd_hid), dim=2)
-    pack = nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True)
+      inp = torch.cat((inp, bi_awd_hid), dim=2)
+    pack = nn.utils.rnn.pack_padded_sequence(inp, seq_lengths, batch_first=True)
     packed_output, _ = self.bi_rnn(pack)
     output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
 

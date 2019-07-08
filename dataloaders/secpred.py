@@ -48,7 +48,7 @@ def get_raw_test(data_path):
 
   return X_test, mask_test, labels_test, num_seq_test, len_test
 
-def get_train_cb513(data_path, seq_len=None):
+def get_train_cb513(data_path, profiles_with_raw=False, seq_len=None):
   print("Loading train data ...")
   X_in = np.load(data_path)
   X = np.reshape(X_in,(5534,700,57))
@@ -59,6 +59,8 @@ def get_train_cb513(data_path, seq_len=None):
   mask = X[:,:,30] * -1 + 1
 
   a = np.arange(0,21)
+  if profiles_with_raw:
+    a = np.arange(0,22) 
   b = np.arange(35,56)
   c = np.hstack((a,b))
 
@@ -177,7 +179,7 @@ def get_train_cullpdb(data_path, seq_len=None):
 #del split
 
 ##### TEST DATA #####
-def get_test(data_path, seq_len=None):
+def get_test(data_path, profiles_with_raw=False, seq_len=None):
   print("Loading test data ...")
   X_test_in = np.load(data_path)
   X_test = np.reshape(X_test_in,(514,700,57))
@@ -186,8 +188,10 @@ def get_test(data_path, seq_len=None):
   X_test = X_test[:,:,:].astype("float32")
   labels_test = X_test[:,:,22:30].astype('int32')
   mask_test = X_test[:,:,30].astype("float32") * -1 + 1
-
+  
   a = np.arange(0,21)
+  if profiles_with_raw:
+    a = np.arange(0,22) 
   b = np.arange(35,56)
   c = np.hstack((a,b))
     
@@ -235,15 +239,15 @@ def save_raw_dataset(data, Y, masks, targets, is_test, is_cullpdb=False):
       np.save("data/SecPred/train_no_x", Y)
 
 
-def load_data(is_cb513, is_raw, train_path, test_path):
+def load_data(is_cb513, is_raw, train_path, test_path, profiles_with_raw=False):
   if is_raw:
     X_train, X_valid, t_train, t_valid, mask_train, \
     mask_valid, len_train, len_valid, num_seq_train = get_raw_train_cb513(train_path)
     X_test, mask_test, t_test, num_seq_test, len_test = get_raw_test(test_path)
   elif is_cb513:
     X_train, X_valid, t_train, t_valid, mask_train, \
-    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513(train_path)
-    X_test, mask_test, t_test, num_seq_test, len_test = get_test(test_path)
+    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513(train_path, profiles_with_raw=profiles_with_raw)
+    X_test, mask_test, t_test, num_seq_test, len_test = get_test(test_path, profiles_with_raw=profiles_with_raw)
   else:
     X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
     mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train_cullpdb(train_path)
@@ -274,11 +278,11 @@ def chop_sequences(X, t, mask, length):
     return X[:, :max_len], t[:, :max_len], mask[:, :max_len]
 
 class gen_data():
-    def __init__(self, batch_size, is_cb513, is_raw, train_path, test_path, data_fn=load_data):
+    def __init__(self, batch_size, is_cb513, is_raw, profiles_with_raw, train_path, test_path, data_fn=load_data):
         print("initializing data generator!")
         #self._num_iterations = num_iterations
         self._batch_size = batch_size
-        self._data_dict, self._num_seq_train = load_data(is_cb513, is_raw, train_path, test_path)
+        self._data_dict, self._num_seq_train = load_data(is_cb513, is_raw, train_path, test_path, profiles_with_raw)
         self._seq_len = 700
         print(self._data_dict.keys())
         if 'X_train' in self._data_dict.keys():

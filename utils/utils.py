@@ -205,6 +205,14 @@ def makedirs(path):
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
+def get_raw_from_one_hot(data):
+    datadict = {0:1, 1:19, 2:3, 3:7, 4:12, 5:8, 6:5, 7:18, 8:15, 9:0, 10:6, 11:2, 12:17, 13:10, 14:11, 15:13, 16:14, 17:9, 18:4, 19:16, 20:1, 21:20}
+    datargmax = torch.argmax(data, dim=2)
+    for i in range(len(data)):
+        for j in range(len(data[0])):
+            datargmax[i][j] = datadict[datargmax[i][j].item()]
+    return datargmax
+
 if __name__ == "__main__":
   batch_size = 7
   seq_len = 11
