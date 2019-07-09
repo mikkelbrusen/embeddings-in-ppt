@@ -45,6 +45,7 @@ parser_secpred.add_argument('--config', help="Choose which model you want to run
 parser_secpred.add_argument('--crf', help="Turn on CRF", action="store_true")
 parser_secpred.add_argument('--cb513', help="Use CB513 as test set", action="store_true")
 parser_secpred.add_argument('--raw', help="Use raw sequence data", action="store_true")
+parser_secpred.add_argument('--profiles_with_raw', help="Use profiles and raw sequence data", action="store_true")
 parser_secpred.add_argument('--n_l1',  help="Size of first linear layer", type=int, default=500)
 parser_secpred.add_argument('--n_l2',  help="Size of second linear layer", type=int, default=400)
 

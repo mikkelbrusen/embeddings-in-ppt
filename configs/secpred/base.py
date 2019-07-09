@@ -31,7 +31,7 @@ class Config(ConfigBase):
     self.train_data_gen, self.validdata, self.testdata, self.num_batch = self._load_data()
 
   def _load_data(self):
-    data_gen = data.gen_data(batch_size=self.args.batch_size, is_cb513=self.args.cb513, is_raw=self.args.raw, train_path=self.args.trainset, test_path=self.args.testset)
+    data_gen = data.gen_data(batch_size=self.args.batch_size, is_cb513=self.args.cb513, is_raw=self.args.raw, profiles_with_raw=self.args.profiles_with_raw, train_path=self.args.trainset, test_path=self.args.testset)
     num_batch = data_gen._num_seq_train // self.args.batch_size
     data_gen_train = data_gen.gen_train(is_raw=self.args.raw)
     validdata = data_gen.get_valid_data()
