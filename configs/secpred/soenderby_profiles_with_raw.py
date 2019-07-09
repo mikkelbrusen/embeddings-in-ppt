@@ -3,7 +3,7 @@ import torch.nn as nn
 from configs.secpred.base import Config as BaseConfig
 from utils.utils import get_raw_from_one_hot
 from models.encoders.bi_awd_soenderby_profiles import Encoder
-from models.decoders.mlp2 import Decoder
+from models.decoders.lstm_mlp2 import Decoder
 import torch
 
 class Model(nn.Module):
