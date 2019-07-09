@@ -11,6 +11,10 @@ class Encoder(BaseEncoder):
   """
   Encoder
 
+  Parameters:
+    -- bi_awd_layer: first, second or last
+    -- architecture: before, after or both
+
   Inputs: input, seq_len
     - **input** of shape
   Outputs: output
@@ -21,7 +25,7 @@ class Encoder(BaseEncoder):
     self.awd_layer = awd_layer
     self.architecture = architecture
 
-    if awd_layer in ["second"]:
+    if awd_layer in ["first", "second"]:
       self.project = nn.Linear(1280, 300, bias=False)
     elif awd_layer in ["last"]:
       self.project = nn.Linear(320, 300, bias=False)
@@ -39,13 +43,17 @@ class Encoder(BaseEncoder):
     with torch.no_grad():
       all_hid, _, _ = self.awd(input=inp, seq_lengths=seq_lengths)
 
-    if self.awd_layer == "last":
-      awd_hid = all_hid[2]
+    if self.awd_layer == "first":
+      awd_hid = all_hid[0]
       awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
       
     elif self.awd_layer == "second":
       awd_hid = all_hid[1]
       awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
+
+    elif self.awd_layer == "last":
+      awd_hid = all_hid[2]
+      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
     
     awd_hid = self.project(awd_hid) # (bs, seq_len, 300)
     ### End AWD 

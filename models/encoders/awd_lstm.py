@@ -11,7 +11,7 @@ class Encoder(nn.Module):
   Encoder with bi_awd concatenated to the LSTM output
 
   Parameters:
-    -- awd_layer: last or second
+    -- awd_layer: first, second or last
     -- project_size: size of projection layer from bi_awd to lstm
 second
   Inputs: input, seq_len
@@ -26,14 +26,14 @@ second
     self.project_size = project_size
     self.drop = nn.Dropout(args.hid_dropout)
 
-    if project_size is not None and awd_layer in ["second"]:
+    if project_size is not None and awd_layer in ["first", "second"]:
       self.project = nn.Linear(1280, project_size, bias=False)
     elif project_size is not None and awd_layer in ["last"]:
       self.project = nn.Linear(320, project_size, bias=False)
 
     if project_size is not None:
       self.lstm = nn.LSTM(project_size, args.n_hid, bidirectional=True, batch_first=True)
-    elif awd_layer in ["second"]:
+    elif awd_layer in ["first", "second"]:
       self.lstm = nn.LSTM(1280, args.n_hid, bidirectional=True, batch_first=True)
     elif awd_layer in ["last"]:
       self.lstm = nn.LSTM(320, args.n_hid, bidirectional=True, batch_first=True)
@@ -48,13 +48,17 @@ second
     with torch.no_grad():
       all_hid, _, _ = self.awd(input=inp, seq_lengths=seq_lengths)
 
-    if self.awd_layer == "last":
-      awd_hid = all_hid[2]
-      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
+    if self.awd_layer == "first":
+      awd_hid = all_hid[0]
+      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
 
     elif self.awd_layer == "second":
       awd_hid = all_hid[1]
       awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
+
+    elif self.awd_layer == "last":
+      awd_hid = all_hid[2]
+      awd_hid = awd_hid.permute(1,0,2) # (bs, seq_len, 320)
 
     if self.project_size is not None:
       awd_hid = self.project(awd_hid) # (bs, seq_len, project_size) 

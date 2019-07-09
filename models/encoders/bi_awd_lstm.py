@@ -11,9 +11,8 @@ class Encoder(nn.Module):
   Encoder with bi_awd concatenated to the LSTM input
 
   Parameters:
-    -- bi_awd_layer: last or second
+    -- bi_awd_layer: first, second or last
     -- project_size: size of projection layer from bi_awd to lstm
-second
   Inputs: input, seq_len
     - **input** of shape
   Outputs: output
@@ -26,14 +25,14 @@ second
     self.project_size = project_size
     self.drop = nn.Dropout(args.hid_dropout)
 
-    if project_size is not None and bi_awd_layer in ["second"]:
+    if project_size is not None and bi_awd_layer in ["first", "second"]:
       self.project = nn.Linear(2*1280, project_size, bias=False)
     elif project_size is not None and bi_awd_layer in ["last"]:
       self.project = nn.Linear(2*320, project_size, bias=False)
 
     if project_size is not None:
       self.lstm = nn.LSTM(project_size, args.n_hid, bidirectional=True, batch_first=True)
-    elif bi_awd_layer in ["second"]:
+    elif bi_awd_layer in ["first","second"]:
       self.lstm = nn.LSTM(2*1280, args.n_hid, bidirectional=True, batch_first=True)
     elif bi_awd_layer in ["last"]:
       self.lstm = nn.LSTM(2*320, args.n_hid, bidirectional=True, batch_first=True)
@@ -46,13 +45,13 @@ second
   def forward(self, inp, seq_lengths):
     with torch.no_grad():
         (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
-    
-    if self.bi_awd_layer == "last":
-      bi_awd_hid = all_hid[2]
-      bi_awd_hid_rev = all_hid_rev[2]
 
-      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 320) 
-      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
+    if self.bi_awd_layer == "first":
+      bi_awd_hid = all_hid[0]
+      bi_awd_hid_rev = all_hid_rev[0]
+
+      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
+      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 1280) 
 
     elif self.bi_awd_layer == "second":
       bi_awd_hid = all_hid[1]
@@ -60,6 +59,13 @@ second
 
       bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
       bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 1280) 
+
+    elif self.bi_awd_layer == "last":
+      bi_awd_hid = all_hid[2]
+      bi_awd_hid_rev = all_hid_rev[2]
+
+      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 320) 
+      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
     
     bi_awd_hid = torch.cat((bi_awd_hid, bi_awd_hid_rev), dim=2) # (bs, seq_len, 640 or 2560) 
 

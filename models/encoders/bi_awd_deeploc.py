@@ -13,7 +13,7 @@ class Encoder(BaseEncoder):
   Encoder with bi_awd concatenated to the LSTM output
 
   Parameters:
-    -- bi_awd_layer: last or second
+    -- bi_awd_layer: first, second or last
     -- architecture: before, after or both
 
   Inputs: input, seq_len
@@ -27,7 +27,7 @@ class Encoder(BaseEncoder):
     self.architecture = architecture
     self.bi_awd_layer = bi_awd_layer
 
-    if bi_awd_layer in ["second"]:
+    if bi_awd_layer in ["first", "second"]:
       self.project = nn.Linear(2560, 300, bias=False)
     elif bi_awd_layer in ["last"]:
       self.project = nn.Linear(320*2, 300, bias=False)
@@ -44,12 +44,12 @@ class Encoder(BaseEncoder):
     with torch.no_grad():
         (all_hid, all_hid_rev) , _, _ = self.bi_awd(inp, seq_lengths) # all_hid, last_hidden_states, emb
     
-    if self.bi_awd_layer == "last":
-      bi_awd_hid = all_hid[2]
-      bi_awd_hid_rev = all_hid_rev[2]
+    if self.bi_awd_layer == "first":
+      bi_awd_hid = all_hid[0]
+      bi_awd_hid_rev = all_hid_rev[0]
 
-      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 320) 
-      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
+      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
+      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 1280) 
 
     elif self.bi_awd_layer == "second":
       bi_awd_hid = all_hid[1]
@@ -57,6 +57,13 @@ class Encoder(BaseEncoder):
 
       bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 1280) 
       bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 1280) 
+
+    elif self.bi_awd_layer == "last":
+      bi_awd_hid = all_hid[2]
+      bi_awd_hid_rev = all_hid_rev[2]
+
+      bi_awd_hid = bi_awd_hid.permute(1,0,2) # (bs, seq_len, 320) 
+      bi_awd_hid_rev = bi_awd_hid_rev.permute(1,0,2) # (bs, seq_len, 320) 
     
     bi_awd_hid = torch.cat((bi_awd_hid, bi_awd_hid_rev), dim=2) # (bs, seq_len, something big) 
     bi_awd_hid = self.project(bi_awd_hid) # (bs, seq_len, 300) 
