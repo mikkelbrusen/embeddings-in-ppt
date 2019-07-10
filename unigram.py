@@ -8,25 +8,44 @@ if subcell:
     partition = train_data['partition']   
 else:
     data_dict, _ = data.load_data(is_cb513=True, is_raw=True, train_path="data/SecPred/train_raw.npz", test_path="data/SecPred/test_raw.npz")
-    y_tr = data_dict["t_train"].astype(np.int32)
-    seq_len = data_dict["length_train"].astype(np.int32)
+    y_tr = data_dict["t_test"].astype(np.int32)
+    seq_len = data_dict["length_test"].astype(np.int32)
 
 def getUnigram(targets):
     num_targets = len(targets)
     unigramPreds = []
     for i in range(0, num_targets):
-        x = random.randint(0, num_targets-1)
-        unigramPreds.append(targets[x])
-        #unigramPreds.append(0)
+        if subcell:
+            x = random.randint(0, num_targets-1)
+            unigramPreds.append(targets[x])
+            #unigramPreds.append(0)
+        else:
+            pred = []
+            for j in range(seq_len[i]):
+                x = random.randint(0, num_targets-1)
+                y = random.randint(0, seq_len[x]-1)
+                #pred.append(targets[x][y])
+                pred.append(5)
+            unigramPreds.append(pred)
+
     return unigramPreds
 
 def computeAccuracy(targets, preds):
     assert len(targets) == len(preds)
     hits = 0
-    for i in range(len(targets)):
-        if targets[i] == preds[i]:
-            hits += 1
-    return hits/len(targets)*100
+    if subcell:
+        for i in range(len(targets)):
+            if targets[i] == preds[i]:
+                hits += 1
+        return hits/len(targets)*100
+    else:
+        total = 0
+        for i in range(len(preds)):
+            for j in range(len(preds[i])):
+                total += 1
+                if targets[i][j] == preds[i][j]:
+                    hits += 1
+        return hits/total*100
 
 if __name__ == "__main__":
     if subcell:
@@ -39,7 +58,8 @@ if __name__ == "__main__":
             preds = getUnigram(y_tr)
             print("Accuracy: ", computeAccuracy(y_tr, preds))
     else:
-        y_tr = np.concatenate(y_tr, axis=None)
+        preds = getUnigram(y_tr)
+        print("Accuracy: ", computeAccuracy(y_tr, preds))
 
         
     

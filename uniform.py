@@ -9,8 +9,8 @@ if subcell:
     partition = train_data['partition']   
 else:
     data_dict, _ = data.load_data(is_cb513=True, is_raw=True, train_path="data/SecPred/train_raw.npz", test_path="data/SecPred/test_raw.npz")
-    y_tr = data_dict["t_train"].astype(np.int32)
-    seq_len = data_dict["length_train"].astype(np.int32)
+    y_tr = data_dict["t_test"].astype(np.int32)
+    seq_len = data_dict["length_test"].astype(np.int32)
 
 
 
