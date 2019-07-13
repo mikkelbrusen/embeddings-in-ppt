@@ -113,5 +113,4 @@ data/DeepLoc/train.npz
 data/SecPred/train_raw.npz
 data/SecPred/test_raw.npz
 data/SecPred_raw/test_raw.npz
-
 data/
