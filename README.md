@@ -21,16 +21,16 @@ In order to run all configurations the following datasets are needed:
 
 + **Deeploc** which is the deeploc dataset encoded as profiles
 + **Deeploc_raw** which is the deeploc dataset without encoding (raw sequences)
-+ **SecPred** ....
-+ **SecPred_raw** .....
++ **SecPred** which is the filtered CullPDB dataset encoded as profiles. Files with _no_x have X replaced by A.   
++ **SecPred_raw** which is the CB513 dataset without encoding (raw sequences). X has been replaced by A.
 
-all of which can be [downloaded here............. fix link](https://drive.google.com/mikkeldataaaa)
+all of which can be [downloaded here](https://drive.google.com/drive/folders/1-qPOetLSYrrlFvcjmt2lSAwKoR-_AXFm?usp=sharing)
 
 The datasets should then be positioned in the [`data/` directory](data/) similarly to the already included Deeploc_raw dataset.
 
 ## Training models
 
-Model architecture and other settings are controlled by config files in the [`configs/{task}` directory](configs/). Each config is task specific, such that subcellular localization configurations can be found in [`configs/subcel` directory](configs/subcel/) and secondary strcuture prediction configurations can be found in [`configs/secpred` directory](configs/secpred/).
+Model architecture and other settings are controlled by config files in the [`configs/{task}` directory](configs/). Each config is task specific, such that subcellular localization configurations can be found in [`configs/subcel` directory](configs/subcel/) and secondary structure prediction configurations can be found in [`configs/secpred` directory](configs/secpred/).
 
 To start training a model, we need to first give the task as argument when running `main.py` e.g. `subcel` and then choose a configuration with `--config`. For example, if we want to train with the configuration `configs/subcel/deeploc_raw`, we should use the following command:
 
