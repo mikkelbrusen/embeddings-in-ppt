@@ -3,6 +3,7 @@ import random
 import torch
 from collections import OrderedDict
 from torch.autograd import Variable
+from utils.data_utils import tokenize_sequence
 
 def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize, shuffle=True, sort_len=True, sample_last_batch=True):
   """ Generate minibatches of a specific size 
@@ -75,3 +76,47 @@ def iterate_minibatches(inputs, targets, masks, targets_mem, unk_mem, batchsize,
 
     # Return a minibatch of each array
     yield in_seq[shuf_ind], in_target[shuf_ind], in_mask[shuf_ind], in_target_mem[shuf_ind], in_unk_mem[shuf_ind]
+
+def load_data(train_path, test_path, is_raw):
+  # Load data
+  print("Loading data...")
+  test_data = np.load(test_path)
+  train_data = np.load(train_path)
+
+  # Test set
+  X_test = test_data['X_test']
+  y_test = test_data['y_test']
+  mask_test = test_data['mask_test']
+  mem_test = test_data['mem_test'].astype(np.int32)
+  unk_test = test_data['unk_test'].astype(np.int32)
+
+  # Training set
+  X_train = train_data['X_train']
+  y_train = train_data['y_train']
+  mask_train = train_data['mask_train']
+  partition = train_data['partition']
+  mem_train = train_data['mem_train']
+  unk_train = train_data['unk_train']
+
+  print("X_train.shape", X_train.shape)
+  print("X_test.shape", X_test.shape)
+
+  # Tokenize and remove invalid sequenzes
+  if (is_raw):
+    X_train, mask = tokenize_sequence(X_train)
+    X_train = np.asarray(X_train)
+    y_train = y_train[mask]
+    mask_train = mask_train[mask]
+    partition = partition[mask]
+    mem_train = mem_train[mask]
+    unk_train = unk_train[mask]
+
+    X_test, mask = tokenize_sequence(X_test)
+    X_test = np.asarray(X_test)
+    y_test = y_test[mask]
+    mask_test = mask_test[mask]
+    mem_test = mem_test[mask]
+    unk_test = unk_test[mask]
+
+  print("Loading complete!")
+  return (X_train, y_train, mask_train, partition, mem_train, unk_train), (X_test, y_test, mask_test, mem_test, unk_test) 

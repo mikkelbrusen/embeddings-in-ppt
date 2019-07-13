@@ -9,12 +9,12 @@ class Decoder(nn.Module):
   def __init__(self, args, in_size):
     super().__init__()
     self.args = args
-    self.densel1 = nn.Linear(in_size, self.args.n_l2)
-    self.densel2 = nn.Linear(self.args.n_l2, self.args.n_l2)
+    self.densel1 = nn.Linear(in_size, self.args.n_hid3)
+    self.densel2 = nn.Linear(self.args.n_hid3, self.args.n_hid3)
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
 
-    self.label = nn.Linear(self.args.n_l2, self.args.num_classes)
+    self.label = nn.Linear(self.args.n_hid3, self.args.num_classes)
 
     self.init_weights()
 

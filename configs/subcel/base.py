@@ -9,9 +9,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
-from dataloaders.subcel import iterate_minibatches
+from dataloaders.subcel import iterate_minibatches, load_data
 from models.utils.attention import Attention, MultiStepAttention
-from utils.data_utils import tokenize_sequence
 from utils.utils import do_layer_norm, save_model, load_model, save_results, ResultsContainer
 from utils.confusionmatrix import ConfusionMatrix
 from utils.metrics_mc import gorodkin, IC
@@ -29,57 +28,13 @@ class Config(ConfigBase):
     self.raw = raw
 
     if raw:
-      self.trainset = "data/Deeploc_seq/train.npz"
-      self.testset = "data/Deeploc_seq/test.npz"
+      self.trainset = "data/Deeploc_raw/train.npz"
+      self.testset = "data/Deeploc_raw/test.npz"
     else:
       self.trainset = "data/Deeploc/train.npz"
       self.testset = "data/Deeploc/test.npz"
 
-    self.traindata, self.testdata = self._load_data()
-
-  def _load_data(self):
-    # Load data
-    print("Loading data...")
-    test_data = np.load(self.testset)
-    train_data = np.load(self.trainset)
-
-    # Test set
-    X_test = test_data['X_test']
-    y_test = test_data['y_test']
-    mask_test = test_data['mask_test']
-    mem_test = test_data['mem_test'].astype(np.int32)
-    unk_test = test_data['unk_test'].astype(np.int32)
-
-    # Training set
-    X_train = train_data['X_train']
-    y_train = train_data['y_train']
-    mask_train = train_data['mask_train']
-    partition = train_data['partition']
-    mem_train = train_data['mem_train']
-    unk_train = train_data['unk_train']
-
-    print("X_train.shape", X_train.shape)
-    print("X_test.shape", X_test.shape)
-
-    # Tokenize and remove invalid sequenzes
-    if (self.raw):
-      X_train, mask = tokenize_sequence(X_train)
-      X_train = np.asarray(X_train)
-      y_train = y_train[mask]
-      mask_train = mask_train[mask]
-      partition = partition[mask]
-      mem_train = mem_train[mask]
-      unk_train = unk_train[mask]
-
-      X_test, mask = tokenize_sequence(X_test)
-      X_test = np.asarray(X_test)
-      y_test = y_test[mask]
-      mask_test = mask_test[mask]
-      mem_test = mem_test[mask]
-      unk_test = unk_test[mask]
-
-    print("Loading complete!")
-    return (X_train, y_train, mask_train, partition, mem_train, unk_train), (X_test, y_test, mask_test, mem_test, unk_test) 
+    self.traindata, self.testdata = load_data(train_path=self.trainset, test_path=self.testset, is_raw=raw)
 
   def _prepare_tensors(self, batch):
     inputs, targets, in_masks, targets_mem, unk_mem = batch

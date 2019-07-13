@@ -8,9 +8,9 @@ class Encoder(nn.Module):
   def __init__(self, args):
     super().__init__()
     self.args = args
-    self.densel1 = nn.Linear(self.args.n_features, self.args.n_l1)
-    self.densel2 = nn.Linear(self.args.n_l1, self.args.n_l1)
-    self.bi_rnn = nn.LSTM(input_size=self.args.n_l1+self.args.n_features, hidden_size=self.args.n_hid, num_layers=3, bidirectional=True, batch_first=True)
+    self.densel1 = nn.Linear(self.args.n_features2, self.args.n_hid2)
+    self.densel2 = nn.Linear(self.args.n_hid2, self.args.n_hid2)
+    self.bi_rnn = nn.LSTM(input_size=self.args.n_hid2+self.args.n_features2, hidden_size=self.args.n_hid2, num_layers=3, bidirectional=True, batch_first=True)
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
 

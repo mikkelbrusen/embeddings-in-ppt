@@ -9,7 +9,7 @@ import utils
 SAVE_DATASETS = False
 ##### TRAIN DATA #####
 
-def get_raw_train_cb513(data_path):
+def get_raw_train(data_path):
   print("Loading train data ...")
   X_in = np.load(data_path)
   X = X_in['X_train']
@@ -48,7 +48,7 @@ def get_raw_test(data_path):
 
   return X_test, mask_test, labels_test, num_seq_test, len_test
 
-def get_train_cb513(data_path, profiles_with_raw=False, seq_len=None):
+def get_train(data_path, profiles_with_raw=False, seq_len=None):
   print("Loading train data ...")
   X_in = np.load(data_path)
   X = np.reshape(X_in,(5534,700,57))
@@ -115,7 +115,7 @@ def get_train_cb513(data_path, profiles_with_raw=False, seq_len=None):
   return X_train, X_valid, labels_train, labels_valid, mask_train, \
       mask_valid, len_train, len_valid, num_seq_train
 
-def get_train_cullpdb(data_path, seq_len=None):
+""" def get_train_cullpdb(data_path, seq_len=None):
   print("Loading train data ...")
   X_in = np.load(data_path)
   X = np.reshape(X_in,(6133,700,57))
@@ -176,7 +176,7 @@ def get_train_cullpdb(data_path, seq_len=None):
 
   return X_train, X_valid, X_test, labels_train, labels_valid, labels_test, mask_train, \
       mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train
-#del split
+#del split """
 
 ##### TEST DATA #####
 def get_test(data_path, profiles_with_raw=False, seq_len=None):
@@ -227,30 +227,23 @@ def save_raw_dataset(data, Y, masks, targets, is_test, is_cullpdb=False):
       if datargmax[i][j] == 20:
         Y[i][j][np.arange(0,22)] = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
       datargmax[i][j] = datadict[datargmax[i][j]]
-  if is_cullpdb:
-    np.savez("data/SecPred/train_cullpdb_raw", X_train=datargmax, t_train=targets, mask_train=masks)
-    np.save("data/SecPred/train_cullpdb_no_x", Y)
+  if is_test:
+    np.savez("data/SecPred_raw/test_raw", X_test=datargmax, t_test=targets, mask_test=masks)
+    np.save("data/SecPred/test_no_x", Y)
   else:
-    if is_test:
-      np.savez("data/SecPred/test_raw", X_test=datargmax, t_test=targets, mask_test=masks)
-      np.save("data/SecPred/test_no_x", Y)
-    else:
-      np.savez("data/SecPred/train_raw", X_train=datargmax, t_train=targets, mask_train=masks)
-      np.save("data/SecPred/train_no_x", Y)
+    np.savez("data/SecPred_raw/train_raw", X_train=datargmax, t_train=targets, mask_train=masks)
+    np.save("data/SecPred/train_no_x", Y)
 
 
-def load_data(is_cb513, is_raw, train_path, test_path, profiles_with_raw=False):
+def load_data(is_raw, train_path, test_path, profiles_with_raw=False):
   if is_raw:
     X_train, X_valid, t_train, t_valid, mask_train, \
-    mask_valid, len_train, len_valid, num_seq_train = get_raw_train_cb513(train_path)
+    mask_valid, len_train, len_valid, num_seq_train = get_raw_train(train_path)
     X_test, mask_test, t_test, num_seq_test, len_test = get_raw_test(test_path)
-  elif is_cb513:
-    X_train, X_valid, t_train, t_valid, mask_train, \
-    mask_valid, len_train, len_valid, num_seq_train = get_train_cb513(train_path, profiles_with_raw=profiles_with_raw)
-    X_test, mask_test, t_test, num_seq_test, len_test = get_test(test_path, profiles_with_raw=profiles_with_raw)
   else:
-    X_train, X_valid, X_test, t_train, t_valid, t_test, mask_train, \
-    mask_valid, mask_test, len_train, len_valid, len_test, num_seq_train = get_train_cullpdb(train_path)
+    X_train, X_valid, t_train, t_valid, mask_train, \
+    mask_valid, len_train, len_valid, num_seq_train = get_train(train_path, profiles_with_raw=profiles_with_raw)
+    X_test, mask_test, t_test, num_seq_test, len_test = get_test(test_path, profiles_with_raw=profiles_with_raw)
 
   #X_casp, mask_casp, t_casp, len_casp = get_casp()
 
@@ -278,11 +271,11 @@ def chop_sequences(X, t, mask, length):
     return X[:, :max_len], t[:, :max_len], mask[:, :max_len]
 
 class gen_data():
-    def __init__(self, batch_size, is_cb513, is_raw, profiles_with_raw, train_path, test_path, data_fn=load_data):
+    def __init__(self, batch_size, is_raw, profiles_with_raw, train_path, test_path, data_fn=load_data):
         print("initializing data generator!")
         #self._num_iterations = num_iterations
         self._batch_size = batch_size
-        self._data_dict, self._num_seq_train = load_data(is_cb513, is_raw, train_path, test_path, profiles_with_raw)
+        self._data_dict, self._num_seq_train = load_data(is_raw, train_path, test_path, profiles_with_raw)
         self._seq_len = 700
         print(self._data_dict.keys())
         if 'X_train' in self._data_dict.keys():
