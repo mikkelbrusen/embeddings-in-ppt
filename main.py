@@ -31,7 +31,7 @@ subparsers = parser.add_subparsers(dest='parser_name')
 
 # Subcellular
 parser_subcel = subparsers.add_parser("subcel", help='Experiments in subcellular localization', parents=[base_parser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_subcel.add_argument('--config', help="Choose which config you want to run", default="deeploc_raw")
+parser_subcel.add_argument('--config', help="Choose which configuration you want to run", default="deeploc_raw")
 parser_subcel.add_argument('--learning_rate',  help="Learning rate", type=float, default=0.0005)
 parser_subcel.add_argument('--clip', help="Gradient clipping", type=float, default=2.0)
 parser_subcel.add_argument('--num_classes', help="Number of classes to predict from", type=int, default=10)
@@ -40,13 +40,13 @@ parser_subcel.add_argument('--att_size', help="Size of the attention", type=int,
 
 # Secondary Structure Prediction
 parser_secpred = subparsers.add_parser("secpred", help="Experiments in secondary structure prediction", parents=[base_parser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_secpred.add_argument('--config', help="Choose which model you want to run", default="soenderby_raw")
+parser_secpred.add_argument('--config', help="Choose which configuration you want to run", default="soenderby_raw")
 parser_secpred.add_argument('--learning_rate',  help="Learning rate", type=float, default=1e-3)
 parser_secpred.add_argument('--clip', help="Gradient clipping", type=float, default=0.5)
 parser_secpred.add_argument('--n_features2',  help="Embedding feature size for some encoders", type=int, default=42)
 parser_secpred.add_argument('--num_classes', help="Number of classes to predict from", type=int, default=8)
-parser_secpred.add_argument('--n_hid2',  help="Size of first linear layer", type=int, default=500)
-parser_secpred.add_argument('--n_hid3',  help="Size of second linear layer", type=int, default=400)
+parser_secpred.add_argument('--n_hid2',  help="Hidden size of encoders of secpred", type=int, default=500)
+parser_secpred.add_argument('--n_hid3',  help="Hidden size of decoders of secpred", type=int, default=400)
 
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
