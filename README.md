@@ -9,13 +9,10 @@ The goal of the project was to train recurrent neural netowrks to translate text
 The software is coded in Python 3.6 using the Pytorch 1.1 version. 
 To run the software smoothly, it is recommended to use those versions.
 
-## Setup
-
 The code was made to be run on a CUDA GPU but can run on CPU too, although this will take forever... 
-
 In order to run configurations that utilize the bi-direction pre-trained embeddings, at least 17GB RAM.
 
-## Data
+## Setup & Data
 
 In order to run all configurations the following datasets are needed:
 
