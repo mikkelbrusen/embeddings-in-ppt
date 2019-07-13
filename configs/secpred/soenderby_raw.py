@@ -10,7 +10,7 @@ class Model(nn.Module):
     super().__init__()
     self.args = args
     self.encoder = Encoder(args)
-    self.decoder = Decoder(args, in_size=self.args.n_hid*2)
+    self.decoder = Decoder(args, in_size=self.args.n_hid2*2)
 
   def forward(self, inp, seq_len):
     output = self.encoder(inp, seq_len)

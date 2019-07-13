@@ -112,3 +112,7 @@ data/DeepLoc/train.npz
 *.npy
 data/SecPred/train_raw.npz
 data/SecPred/test_raw.npz
+data/SecPred_raw/test_raw.npz
+data/Deeploc_raw/train.npz
+data/Deeploc_raw/test.npz
+data/

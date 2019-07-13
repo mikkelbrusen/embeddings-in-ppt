@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 from torch.autograd import Variable
-from models.utils.crf_layer import CRF
 import dataloaders.secpred as data
 
 from utils.utils import save_model, load_model
@@ -24,16 +23,28 @@ class Model(nn.Module):
 ################################
 
 class Config(ConfigBase):
-  def __init__(self, args, Model):
+  def __init__(self, args, Model, raw=True, is_no_x=True, is_profiles_with_raw=False):
     self.args = args
     self.Model = Model
+    self.raw = raw
+    self.is_profiles_with_raw = is_profiles_with_raw
+
+    if raw:
+      self.trainset = "data/SecPred_raw/train_raw.npz"
+      self.testset = "data/SecPred_raw/test_raw.npz"
+    elif is_no_x:
+      self.trainset = "data/SecPred/train_no_x.npy"
+      self.testset = "data/SecPred/test_no_x.npy"
+    else:
+      self.trainset = "data/SecPred/train.npy"
+      self.testset = "data/SecPred/test.npy"       
 
     self.train_data_gen, self.validdata, self.testdata, self.num_batch = self._load_data()
 
   def _load_data(self):
-    data_gen = data.gen_data(batch_size=self.args.batch_size, is_cb513=self.args.cb513, is_raw=self.args.raw, profiles_with_raw=self.args.profiles_with_raw, train_path=self.args.trainset, test_path=self.args.testset)
+    data_gen = data.gen_data(batch_size=self.args.batch_size, is_raw=self.raw, profiles_with_raw=self.is_profiles_with_raw, train_path=self.trainset, test_path=self.testset)
     num_batch = data_gen._num_seq_train // self.args.batch_size
-    data_gen_train = data_gen.gen_train(is_raw=self.args.raw)
+    data_gen_train = data_gen.gen_train(is_raw=self.raw)
     validdata = data_gen.get_valid_data()
     testdata = data_gen.get_test_data()
 
@@ -45,14 +56,6 @@ class Config(ConfigBase):
     if optimizer == 'adadelta':
       return torch.optim.Adadelta(params=model.parameters(), lr=self.args.learning_rate)
     raise ValueError("No optimizer found for: {}".format(optimizer))
-
-  def calculate_accuracy_crf(self, preds, targets, mask):
-    correct = 0
-    for i in range(len(preds)):
-        pred = torch.tensor(preds[i]).type(torch.float64).to(self.args.device)
-        target = targets[i][mask[i]].type(torch.float64).to(self.args.device)
-        correct += torch.sum(pred.eq(target))
-    return correct.type(torch.float64) / torch.sum(mask.type(torch.float64))
 
   def calculate_accuracy(self, preds, targets, mask):
     preds = preds.argmax(2).type(torch.float)
@@ -83,34 +86,20 @@ class Config(ConfigBase):
       self.optimizer.zero_grad()
       output = model(inp=inp, seq_len=seq_lens)
       
-      if self.args.crf:
-          # calculate loss
-          output = output.double()
-          mask_float = mask_float.double()
-          loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-          loss = loss / torch.sum(mask_float)
-          loss.backward()
+      # calculate loss
+      loss = 0
+      loss_preds = output.permute(1,0,2)
+      loss_mask = mask_float.permute(1,0)
+      loss_targets = targets.permute(1,0)
+      for i in range(loss_preds.size(0)):
+          loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
+      loss = loss / (torch.sum(loss_mask)+1e-12)
+      loss.backward()
 
-          # calculate accuaracy
-          preds_list = model.crf.decode(emissions=output, mask=mask_byte)
-          accuracy += self.calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
+      # calculate accuaracy
+      accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
 
-          torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=self.args.clip)
-      else:
-          # calculate loss
-          loss = 0
-          loss_preds = output.permute(1,0,2)
-          loss_mask = mask_float.permute(1,0)
-          loss_targets = targets.permute(1,0)
-          for i in range(loss_preds.size(0)):
-              loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
-          loss = loss / (torch.sum(loss_mask)+1e-12)
-          loss.backward()
-
-          # calculate accuaracy
-          accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
-
-          torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=self.args.clip)
+      torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=self.args.clip)
       
       self.optimizer.step()
 
@@ -140,26 +129,16 @@ class Config(ConfigBase):
 
       output = model(inp=inp, seq_len=seq_lens)
       
-      if self.args.crf:
-          output = output.double()
-          mask_float = mask_float.double()
-          # calculate loss
-          loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-          loss = loss / torch.sum(mask_float)
-          # calculate accuaracy
-          preds_list = model.crf.decode(emissions=output, mask=mask_byte)
-          accuracy += self.calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
-      else:
-          # calculate loss
-          loss = 0
-          loss_preds = output.permute(1,0,2)
-          loss_mask = mask_float.permute(1,0)
-          loss_targets = targets.permute(1,0)
-          for i in range(loss_preds.size(0)):  #try and make into matrix loss
-              loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
-          loss = loss / (torch.sum(loss_mask)+1e-12)
-          # calculate accuaracy
-          accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
+      # calculate loss
+      loss = 0
+      loss_preds = output.permute(1,0,2)
+      loss_mask = mask_float.permute(1,0)
+      loss_targets = targets.permute(1,0)
+      for i in range(loss_preds.size(0)):  #try and make into matrix loss
+          loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
+      loss = loss / (torch.sum(loss_mask)+1e-12)
+      # calculate accuaracy
+      accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
 
       return loss, accuracy
 
@@ -182,27 +161,17 @@ class Config(ConfigBase):
       targets = Variable(torch.from_numpy(targets).type(torch.long)).to(self.args.device)
 
       output = model(inp=inp, seq_len=seq_lens)
-      
-      if self.args.crf:
-          output = output.double()
-          mask_float = mask_float.double()
-          # calculate loss
-          loss = -model.crf(emissions=output, tags=targets, mask=mask_byte)
-          loss = loss / torch.sum(mask_float)
-          # calculate accuaracy
-          preds_list = model.crf.decode(emissions=output, mask=mask_byte)
-          accuracy += self.calculate_accuracy_crf(preds=preds_list, targets=targets, mask=mask_byte)
-      else:
-          # calculate loss
-          loss = 0
-          loss_preds = output.permute(1,0,2)
-          loss_mask = mask_float.permute(1,0)
-          loss_targets = targets.permute(1,0)
-          for i in range(loss_preds.size(0)):  #try and make into matrix loss
-              loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
-          loss = loss / (torch.sum(loss_mask)+1e-12)
-          # calculate accuaracy
-          accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
+
+      # calculate loss
+      loss = 0
+      loss_preds = output.permute(1,0,2)
+      loss_mask = mask_float.permute(1,0)
+      loss_targets = targets.permute(1,0)
+      for i in range(loss_preds.size(0)):  #try and make into matrix loss
+          loss += torch.sum(F.cross_entropy(loss_preds[i], loss_targets[i], reduction='none') * loss_mask[i])
+      loss = loss / (torch.sum(loss_mask)+1e-12)
+      # calculate accuaracy
+      accuracy += self.calculate_accuracy(preds=output, targets=targets, mask=mask_float)
 
       return loss, accuracy
 

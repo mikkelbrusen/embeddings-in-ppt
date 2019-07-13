@@ -12,9 +12,9 @@ class Encoder(nn.Module):
     self.args = args
     self.bi_awd_layer = bi_awd_layer
     self.architecture = architecture
-    self.densel1 = nn.Linear(self.args.n_features, self.args.n_l1)
-    self.densel2 = nn.Linear(self.args.n_l1, self.args.n_l1)
-    self.bi_rnn = nn.LSTM(input_size=self.args.n_l1+self.args.n_features, hidden_size=self.args.n_hid, num_layers=3, bidirectional=True, batch_first=True)
+    self.densel1 = nn.Linear(self.args.n_features2, self.args.n_hid2)
+    self.densel2 = nn.Linear(self.args.n_hid2, self.args.n_hid2)
+    self.bi_rnn = nn.LSTM(input_size=self.args.n_hid2+self.args.n_features2, hidden_size=self.args.n_hid2, num_layers=3, bidirectional=True, batch_first=True)
     self.drop = nn.Dropout(p=0.5)
     self.relu = nn.ReLU()
 
@@ -24,7 +24,7 @@ class Encoder(nn.Module):
       self.project = nn.Linear(320*2, 300, bias=False)
 
     if self.architecture in ["before", "both"]:
-      self.bi_rnn = nn.LSTM(input_size=self.args.n_l1+self.args.n_features+300, hidden_size=self.args.n_hid, num_layers=3, bidirectional=True, batch_first=True)
+      self.bi_rnn = nn.LSTM(input_size=self.args.n_hid2+self.args.n_features2+300, hidden_size=self.args.n_hid2, num_layers=3, bidirectional=True, batch_first=True)
 
     init_weights(self)
     self.init_weights()
