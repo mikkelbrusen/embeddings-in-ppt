@@ -22,11 +22,11 @@ In order to run all configurations the following datasets are needed:
 + **Deeploc** which is the deeploc dataset encoded as profiles
 + **Deeploc_raw** which is the deeploc dataset without encoding (raw sequences)
 + **SecPred** ....
-+ **SecPred_Raw** .....
++ **SecPred_raw** .....
 
 all of which can be [downloaded here............. fix link](https://drive.google.com/mikkeldataaaa)
 
-The datasets should then be positioned in the [`data/` directory](data/) similarly to the already included Deeploc_seq dataset.
+The datasets should then be positioned in the [`data/` directory](data/) similarly to the already included Deeploc_raw dataset.
 
 ## Training models
 
