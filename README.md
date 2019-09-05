@@ -2,7 +2,7 @@
 
 This is the code repository that accompany the master thesis by [Gustav Madslund](https://github.com/gustavmadslund) and [Mikkel Møller Brusen](https://github.com/mikkelbrusen).
 
-The goal of the project was to train recurrent neural netowrks to translate text between different languages.
+The goal of the project was to evaluate pre-trained amino acid embeddings in protein prediction tasks
 
 ## Software Requirements
 
